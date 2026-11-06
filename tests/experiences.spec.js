@@ -10,7 +10,7 @@ test('particle drawing follows pointer input and clears', async ({ page }) => {
   await page.mouse.down();
   await page.mouse.move(box.x + 120, box.y + 90, { steps: 8 });
   await page.mouse.up();
-  expect(await page.evaluate(() => window.liveIt.app.experiences.drawPoints.length)).toBeGreaterThan(5);
+  expect(await page.evaluate(() => window.liveIt.app.experiences.drawPoints.length)).toBeGreaterThan(50);
   await page.getByRole('button', { name: 'Clear' }).click();
   expect(await page.evaluate(() => window.liveIt.app.experiences.drawPoints.length)).toBe(0);
 });

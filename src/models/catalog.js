@@ -12,7 +12,7 @@ import { makeRng } from '../lib/rng.js';
 import { build, flatten, allocate, shuffleIndex, normalize } from '../lib/sampling.js';
 
 export const CATALOG = [
-  ...WONDERS.map((w) => ({ ...w, kind: 'wonder', category: 'Wonders', tilt: 0 })),
+  ...WONDERS.map((w) => ({ ...w, kind: 'wonder', category: 'Architecture', tilt: 0 })),
   ...[...ANATOMY, ...ANATOMY2, ...BODY].map((a) => ({ ...a, kind: 'machine', category: 'Anatomy' })),
   ...BIOLOGY.map((b) => ({ ...b, kind: 'machine', category: 'Biology' })),
   ...ENGINES.map((e) => ({ ...e, kind: 'machine', category: 'Engines' })),

@@ -44,3 +44,20 @@ test('keyboard uses detected finger counts and presses a steady key after 3 seco
   }, [box.x + box.width / 2, box.y + box.height / 2]);
   expect(input).toEqual(['', 'h']);
 });
+
+test('pinching over an on-screen control activates it', async ({ page }) => {
+  await openApp(page);
+  const bounds = await page.locator('#catalogToggle').boundingBox();
+  const opened = await page.evaluate(([x, y]) => {
+    const W = window.liveIt, app = W.app;
+    const desired = [x / innerWidth, y / innerHeight];
+    const hand = W.synth({ pose: 'pinch', cx: 0.5, cy: 0.5, s: 0.085 });
+    const pinchCenter = [(hand[4][0] + hand[8][0]) / 2, (hand[4][1] + hand[8][1]) / 2];
+    const dx = desired[0] - pinchCenter[0], dy = desired[1] - pinchCenter[1];
+    const positioned = hand.map(([px, py]) => [px + dx, py + dy]);
+    for (let i = 0; i < 3; i++) app.ctl.onHand(positioned, app.t);
+    app.updateGestureCursor(app.ctl, app.t);
+    return document.body.classList.contains('catalog-open');
+  }, [bounds.x + bounds.width / 2, bounds.y + bounds.height / 2]);
+  expect(opened).toBe(true);
+});

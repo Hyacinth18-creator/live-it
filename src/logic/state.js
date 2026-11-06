@@ -2,7 +2,7 @@
 //
 //   IDLE --snap--> SPHERE (burst from centre)
 //   SPHERE --fist--> FORMED (particles fly into the current model)
-//   FORMED --open--> SPHERE + next model        (wonders only)
+//   FORMED --open--> SPHERE + next model        (architecture only)
 //   FORMED + machine: hand openness = exploded view (open = apart, fist = assembled) — handled by the app
 //   SPHERE/FORMED --peace ✌--> SPHERE + next model (any model)
 //   SPHERE/FORMED --snap--> DISSOLVE --(1.2 s)--> IDLE

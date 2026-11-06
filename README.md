@@ -3,7 +3,7 @@
 **Gesture-controlled 3D models made of glowing light particles, running entirely in your browser.**
 
 Hold three fingers up in front of your webcam and up to 250,000 GPU particles swirl into existence. Make a fist and they
-form the Eiffel Tower, a beating heart or a V8 engine. Open your hand and the model morphs into the next one, or
+form the Human Brain, a beating heart or a V8 engine. Open your hand and the model morphs into the next one, or
 explodes into a labelled diagram of every part. No mouse, no controller, no install beyond Node.js.
 
 ![Live It showing a beating human heart made of particles](docs/preview.png)
@@ -62,11 +62,11 @@ Nothing is sent anywhere: the video never leaves your machine.
 | Gesture | What it does |
 |---|---|
 | **Three fingers** | Hold index, middle and ring fingers up with thumb and pinky folded to summon particles or dissolve the current model. Space is also available. |
-| ✊ **Fist** | Form the wonder, organ or machine |
-| ✋ **Open hand** | Wonders morph to the next one. Organs, engines and vehicles **explode**: how far you open your hand sets how far the parts fly apart, and closing it puts them back together |
+| ✊ **Fist** | Form the architecture model, organ or machine |
+| ✋ **Open hand** | Architecture models morph to the next one. Organs, engines and vehicles **explode**: how far you open your hand sets how far the parts fly apart, and closing it puts them back together |
 | 🔄 **Twist / raise your hand** | Turn and tilt the formed model |
 | ☝️ **Point** | Hold your finger on a part to select it. It glows, and a card explains what it does |
-| 🤏 **Pinch** | Pull the selected part out toward you; pinch again to put it back |
+| 🤏 **Pinch** | Activate the on-screen control under the cursor; pinch a selected part to pull it out or put it back |
 | 🙌 **Two hands** | Move them apart or together to zoom |
 | ✌️ **Peace** | Jump to the next model |
 
@@ -108,7 +108,7 @@ Click a part to select it, drag to rotate.
 
 | Category | Models |
 |---|---|
-| **Wonders (11)** | Turtle Tower, Eiffel Tower, Statue of Liberty, Burj Khalifa, Great Pyramid, Colosseum, Leaning Tower of Pisa, Taj Mahal, Big Ben, Christ the Redeemer, Sydney Opera House |
+| **Architecture (11)** | Turtle Tower, Eiffel Tower, Statue of Liberty, Burj Khalifa, Great Pyramid, Colosseum, Leaning Tower of Pisa, Taj Mahal, Big Ben, Christ the Redeemer, Sydney Opera House |
 | **Anatomy (10)** | Brain, beating Heart, Kidney, breathing Lungs, Eye, Ear, Tooth, Skull, Skeleton, Human Body (skin, organs, nerves, arteries, veins, skeleton) |
 | **Biology (2)** | DNA double helix that unzips, Animal cell |
 | **Engines (4)** | Inline-4, Supercharged HEMI V8, Turbofan jet, 9-cylinder radial |

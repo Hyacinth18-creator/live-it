@@ -24,9 +24,10 @@ export class ExperienceHub {
   open(mode) {
     this.close(false);
     this.active = mode; this.app.stopDemo(); this.app.ctl.suppressStateGestures = true;
+    this.root.classList.add(`mode-${mode}`);
     if (this.app.quiz) this.app.stopQuiz();
     const titles = { draw: 'Particle drawing', keyboard: 'Gesture keyboard', assistant: 'Ask Ollama', games: 'Games' };
-    this.root.innerHTML = `<div class="experience-shell"><header class="experience-head"><div><p class="mode-eyebrow">LIVE IT / STUDIO MODE</p><h2 id="experienceTitle">${titles[mode]}</h2></div><button class="mode-close" type="button" data-action="close" aria-label="Close mode">×</button></header><main class="experience-main"></main><div class="gesture-cursor" aria-hidden="true"></div><p class="mode-hint" aria-live="polite"></p></div>`;
+    this.root.innerHTML = `<div class="experience-shell mode-${mode}"><header class="experience-head"><div><p class="mode-eyebrow">LIVE IT / STUDIO MODE</p><h2 id="experienceTitle">${titles[mode]}</h2></div><button class="mode-close" type="button" data-action="close" aria-label="Close mode">×</button></header><main class="experience-main"></main><div class="gesture-cursor" aria-hidden="true"></div><p class="mode-hint" aria-live="polite"></p></div>`;
     this.root.hidden = false;
     if (mode === 'draw') this.mountDraw();
     else if (mode === 'keyboard') this.mountKeyboard();
@@ -43,8 +44,11 @@ export class ExperienceHub {
     this.drawResize = null; this.drawCanvas = null; this.drawCtx = null;
     this.drawFingerPositions?.clear();
     this.keyboardTouches?.clear(); this.keyboardCursors?.clear();
+    this.gestureTarget?.classList.remove('gesture-hovered');
+    this.gestureTarget = null;
     if (!this.active) return;
     this.active = null; this.app.ctl.suppressStateGestures = false; this.root.hidden = true;
+    this.root.classList.remove('mode-draw', 'mode-keyboard');
     this.root.replaceChildren();
     if (restore) this.app.$('catalogToggle').focus();
   }
@@ -60,7 +64,6 @@ export class ExperienceHub {
     if (action === 'chess-square') { this.selectChessSquare(event.target.dataset.square); return; }
     if (action === 'memory-card') { this.flipCard(Number(event.target.dataset.index)); return; }
     if (action === 'draw-color') { this.drawColor = event.target.dataset.color; this.root.querySelectorAll('[data-action="draw-color"]').forEach((b) => b.classList.toggle('selected', b === event.target)); }
-    if (event.target.closest('.draw-surface')) this.drawAtEvent(event);
     if (event.target.closest('.virtual-key')) this.pressKey(event.target.closest('.virtual-key').dataset.key);
   }
 
@@ -83,25 +86,34 @@ export class ExperienceHub {
       ctl.handVisible(this.app.t) && ctl.landmarks,
       ctl.secondVisible(this.app.t) && ctl.second,
     ].filter(Boolean);
-    const point = hands[0] ? {
-      x: hands[0][8][0] * innerWidth,
-      y: hands[0][8][1] * innerHeight,
-    } : null;
+    const point = this.app.gestureScreenPosition(hands[0] || null, ctl.pinch);
     const cursor = this.root.querySelector('.gesture-cursor');
     if (cursor) {
       cursor.hidden = !point || this.active === 'keyboard';
       if (point) { cursor.style.left = `${point.x}px`; cursor.style.top = `${point.y}px`; }
     }
+    const target = point ? document.elementFromPoint(point.x, point.y)?.closest(
+      'button, a[href], input, select, textarea, [role="button"]',
+    ) || null : null;
+    const usableTarget = target && !target.disabled && target.getAttribute('aria-disabled') !== 'true' ? target : null;
+    if (usableTarget !== this.gestureTarget) {
+      this.gestureTarget?.classList.remove('gesture-hovered');
+      this.gestureTarget = usableTarget;
+      usableTarget?.classList.add('gesture-hovered');
+    }
+    if (ctl.pinchStart && usableTarget) {
+      this.app.activateGestureTarget(usableTarget, point.x, point.y);
+      ctl.pinchStart = false;
+    }
     if (this.active === 'draw') {
       const activeFingers = new Set();
       hands.forEach((lm, handIndex) => {
         for (const tip of extendedFingerTips(lm, ctl.gestureProfile)) {
-          const id = `${handIndex}:${tip}`, x = lm[tip][0] * innerWidth, y = lm[tip][1] * innerHeight;
+          const id = `${handIndex}:${tip}`, { x, y } = this.app.screenPosition(lm[tip]);
           const previous = this.drawFingerPositions.get(id);
-          if (!previous || Math.hypot(x - previous.x, y - previous.y) >= 3) {
-            this.addDrawingParticle(x, y);
-            this.drawFingerPositions.set(id, { x, y });
-          }
+          if (previous) this.addDrawingStroke(previous, { x, y });
+          else this.addDrawingParticle(x, y);
+          this.drawFingerPositions.set(id, { x, y });
           activeFingers.add(id);
         }
       });
@@ -109,8 +121,6 @@ export class ExperienceHub {
     }
     if (this.active === 'keyboard') {
       this.updateKeyboard(hands, ctl.gestureProfile);
-    } else if (this.active === 'games' && point && ctl.pinchStart) {
-      document.elementFromPoint(point.x, point.y)?.closest('[data-action="direction"], [data-action="chess-square"], [data-action="memory-card"]')?.click();
     }
     ctl.pinchStart = false;
   }
@@ -120,10 +130,10 @@ export class ExperienceHub {
     this.drawCanvas = this.root.querySelector('.draw-surface canvas'); this.drawCtx = this.drawCanvas.getContext('2d');
     this.drawPoints = []; this.drawColor = '#e3b46f'; this.drawDown = false; this.drawFingerPositions = new Map();
     this.resizeDraw();
-    this.drawCanvas.addEventListener('pointerdown', (event) => { this.drawDown = true; this.drawCanvas.setPointerCapture(event.pointerId); this.drawAtEvent(event); });
+    this.drawCanvas.addEventListener('pointerdown', (event) => { this.drawDown = true; this.drawPointerPosition = null; this.drawCanvas.setPointerCapture(event.pointerId); this.drawAtEvent(event); });
     this.drawCanvas.addEventListener('pointermove', (event) => { if (this.drawDown) this.drawAtEvent(event); });
-    this.drawCanvas.addEventListener('pointerup', () => { this.drawDown = false; });
-    this.drawCanvas.addEventListener('pointercancel', () => { this.drawDown = false; });
+    this.drawCanvas.addEventListener('pointerup', () => { this.drawDown = false; this.drawPointerPosition = null; });
+    this.drawCanvas.addEventListener('pointercancel', () => { this.drawDown = false; this.drawPointerPosition = null; });
     this.drawResize = () => this.resizeDraw(); window.addEventListener('resize', this.drawResize);
     this.drawLoop();
   }
@@ -139,20 +149,38 @@ export class ExperienceHub {
     const rect = this.drawCanvas.getBoundingClientRect();
     if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) return;
     const localX = x - rect.left, localY = y - rect.top;
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < 5; i++) {
       const angle = Math.random() * Math.PI * 2, spread = 2 + Math.random() * 8;
       this.drawPoints.push({
         x: localX + Math.cos(angle) * spread, y: localY + Math.sin(angle) * spread,
-        r: 0.8 + Math.random() * 1.8, color: this.drawColor,
+        r: 1.2 + Math.random() * 1.2, color: this.drawColor,
         phase: Math.random() * Math.PI * 2, drift: 0.5 + Math.random() * 2,
       });
     }
-    if (this.drawPoints.length > 24000) this.drawPoints.splice(0, 7);
+    if (this.drawPoints.length > 24000) this.drawPoints.splice(0, 5);
     this.root.querySelector('.draw-empty')?.remove();
   }
 
-  drawAtEvent(event) { this.addDrawingParticle(event.clientX, event.clientY); }
-  clearDrawing() { this.drawPoints = []; this.drawCtx.clearRect(0, 0, this.drawCanvas.width, this.drawCanvas.height); }
+  addDrawingStroke(from, to) {
+    const distance = Math.hypot(to.x - from.x, to.y - from.y);
+    if (distance < 1.5) return;
+    const steps = Math.max(1, Math.ceil(distance / 4));
+    for (let i = 1; i <= steps; i++) {
+      const t = i / steps;
+      this.addDrawingParticle(from.x + (to.x - from.x) * t, from.y + (to.y - from.y) * t);
+    }
+  }
+
+  drawAtEvent(event) {
+    const point = { x: event.clientX, y: event.clientY };
+    if (this.drawPointerPosition) this.addDrawingStroke(this.drawPointerPosition, point);
+    else this.addDrawingParticle(point.x, point.y);
+    this.drawPointerPosition = point;
+  }
+  clearDrawing() {
+    this.drawPoints = []; this.drawFingerPositions.clear(); this.drawPointerPosition = null;
+    this.drawCtx.clearRect(0, 0, this.drawCanvas.width, this.drawCanvas.height);
+  }
 
   drawLoop() {
     if (this.active !== 'draw') return;
@@ -185,7 +213,7 @@ export class ExperienceHub {
     hands.forEach((lm, handIndex) => {
       for (const tip of extendedFingerTips(lm, profile)) {
         fingerCount++;
-        const id = `${handIndex}:${tip}`, x = lm[tip][0] * innerWidth, y = lm[tip][1] * innerHeight;
+        const id = `${handIndex}:${tip}`, { x, y } = this.app.screenPosition(lm[tip]);
         const key = document.elementFromPoint(x, y)?.closest('.virtual-key') || null;
         if (!key) continue;
         activeTouches.add(id); hoveredKeys.add(key);

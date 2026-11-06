@@ -1,4 +1,4 @@
-// Live It (browser): three fingers -> particle burst, fist -> form a model, open hand -> next wonder or EXPLODED VIEW
+// Live It (browser): three fingers -> particle burst, fist -> form a model, open hand -> next architecture model or EXPLODED VIEW
 // (hand openness = how far apart the parts fly), twist = rotate, ✌ = next, ☝ point = pick a part, pinch = pull it
 // out, two hands = zoom, three fingers = dissolve. Plus quiz, voice, cut-away, recording, beating heart / breathing lungs.
 // MediaPipe (hands) + WebGL2 (GPU particles via transform feedback) + procedural models.
@@ -21,12 +21,14 @@ const HAND_YAW_GAIN = 2.2;     // twisting the hand by 45 deg turns the model ~1
 const HAND_PITCH_GAIN = 2.5;   // raising / lowering the hand by 10 % of the frame tilts the model ~14 deg
 const DWELL_S = 0.45;          // point at a part this long to select it
 const QUIZ_LEN = 5;
+const DEFAULT_START = CATALOG.findIndex((model) => model.category === 'Anatomy');
+const requestedStart = Number.parseInt(qs.get('model'), 10);
 
 const CFG = {
   n: clamp(parseInt(qs.get('n'), 10) || 200000, 5000, 1000000),
   manual: qs.get('manual') === '1',             // tests: deterministic clock, frames only via liveIt.advance()
   autostart: qs.get('autostart'),                // 'camera' | 'nocamera'
-  start: clamp(parseInt(qs.get('model'), 10) || 0, 0, CATALOG.length - 1),
+  start: clamp(Number.isNaN(requestedStart) ? DEFAULT_START : requestedStart, 0, CATALOG.length - 1),
   dpr: qs.get('dpr') ? parseFloat(qs.get('dpr')) : Math.min(window.devicePixelRatio || 1, 2),
   trails: qs.get('trails') !== '0',
 };
@@ -115,6 +117,12 @@ class App {
   constructor() {
     const $ = (id) => document.getElementById(id);
     this.$ = $;
+    this.gestureCursor = document.createElement('div');
+    this.gestureCursor.className = 'gesture-action-cursor';
+    this.gestureCursor.hidden = true;
+    this.gestureCursor.setAttribute('aria-hidden', 'true');
+    document.body.append(this.gestureCursor);
+    this.gestureTarget = null;
     this.experiences = new ExperienceHub($('experience'), this);
     this.canvas = $('gl'); this.overlay = $('overlay'); this.octx = this.overlay.getContext('2d');
     this.video = $('cam');
@@ -183,6 +191,7 @@ class App {
     if (this.autoFormAt !== null && t >= this.autoFormAt) { this.autoFormAt = null; if (st.state === SPHERE) ctl.keyPose(FIST, t); }
     ctl.tick(t);
     this.experiences.update(ctl);
+    this.updateGestureCursor(ctl, t);
 
     // 2. make sure the current model is on the GPU (built in the worker)
     if (st.targetDirty) {
@@ -470,6 +479,66 @@ class App {
     if (va > W / H) { const dw = H * va; return [(px - W / 2) / dw + 0.5, py / H]; }
     const dh = W / va; return [px / W, (py - H / 2) / dh + 0.5];
   }
+  screenPosition(point) {
+    if (!this.camOn || !this.hasVideo) return { x: point[0] * innerWidth, y: point[1] * innerHeight };
+    const [x, y] = this.toScreen(point);
+    return { x: x / CFG.dpr, y: y / CFG.dpr };
+  }
+  gestureScreenPosition(lm, pinching) {
+    if (!lm) return null;
+    const point = pinching
+      ? [(lm[4][0] + lm[8][0]) / 2, (lm[4][1] + lm[8][1]) / 2]
+      : lm[8];
+    return this.screenPosition(point);
+  }
+  setGestureTarget(target) {
+    if (target === this.gestureTarget) return;
+    this.gestureTarget?.classList.remove('gesture-hovered');
+    this.gestureTarget = target;
+    target?.classList.add('gesture-hovered');
+  }
+  activateGestureTarget(target, x, y) {
+    if (target.matches('input[type="range"]')) {
+      const bounds = target.getBoundingClientRect();
+      const min = Number(target.min || 0), max = Number(target.max || 100), step = Number(target.step || 1);
+      const raw = min + clamp((x - bounds.left) / bounds.width, 0, 1) * (max - min);
+      target.value = String(min + Math.round((raw - min) / step) * step);
+      target.dispatchEvent(new Event('input', { bubbles: true }));
+      target.dispatchEvent(new Event('change', { bubbles: true }));
+    } else if (target instanceof HTMLSelectElement) {
+      target.selectedIndex = (target.selectedIndex + 1) % target.options.length;
+      target.dispatchEvent(new Event('change', { bubbles: true }));
+    } else {
+      target.click();
+      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) target.focus();
+    }
+  }
+  updateGestureCursor(ctl, t) {
+    if (this.experiences.active) {
+      this.gestureCursor.hidden = true;
+      this.setGestureTarget(null);
+      return;
+    }
+    if (!ctl.handVisible(t) || !ctl.landmarks) {
+      this.gestureCursor.hidden = true;
+      this.setGestureTarget(null);
+      return;
+    }
+    const point = this.gestureScreenPosition(ctl.landmarks, ctl.pinch);
+    this.gestureCursor.hidden = false;
+    this.gestureCursor.classList.toggle('pinching', ctl.pinch);
+    this.gestureCursor.style.left = `${point.x}px`;
+    this.gestureCursor.style.top = `${point.y}px`;
+    const target = document.elementFromPoint(point.x, point.y)?.closest(
+      'button, a[href], input, select, textarea, [role="button"]',
+    ) || null;
+    const usableTarget = target && !target.disabled && target.getAttribute('aria-disabled') !== 'true' ? target : null;
+    this.setGestureTarget(usableTarget);
+    if (ctl.pinchStart && usableTarget) {
+      this.activateGestureTarget(usableTarget, point.x, point.y);
+      ctl.pinchStart = false;
+    }
+  }
   drawHand(g, lm, col, dpr) {
     const P = lm.map((p) => this.toScreen(p));
     g.lineWidth = 2 * dpr; g.strokeStyle = col; g.globalAlpha = 0.75; g.shadowColor = col; g.shadowBlur = 10 * dpr;
@@ -608,8 +677,8 @@ class App {
   guideItems(machine) {
     return [
       ['three', '3', '<b>Three fingers</b> — summon / dissolve particles'],
-      ['fist', '✊', machine ? '<b>Fist</b> — put it together' : '<b>Fist</b> — form the wonder'],
-      ['open', '✋', machine ? '<b>Open slowly</b> — explode it, see inside' : '<b>Open hand</b> — morph to the next wonder'],
+      ['fist', '✊', machine ? '<b>Fist</b> — put it together' : '<b>Fist</b> — form the architecture'],
+      ['open', '✋', machine ? '<b>Open slowly</b> — explode it, see inside' : '<b>Open hand</b> — morph to the next architecture model'],
       ['twist', '🔄', '<b>Twist / raise hand</b> — rotate & tilt it'],
       ...(machine ? [['point', '☝', '<b>Point</b> at a part to learn it · <b>pinch</b> 🤏 pulls it out']] : []),
       ['zoom', '🙌', '<b>Two hands</b> apart / together — zoom'],

@@ -1,7 +1,7 @@
 // Explodable engines. Every machine is a list of groups (= physical parts). Each group has a colour, an
 // explode offset (where the part travels in the exploded view, same units as the model) and a stage in
 // 0..1 (when, while the hand opens, that part starts to move — outer parts come off first).
-// Units: mm for piston engines, cm for the turbofan, so lines/surfaces balance like the wonders do.
+// Units: mm for piston engines, cm for the turbofan, so lines/surfaces balance like the architecture models do.
 import {
   line, polyline, quad, boxSurface, boxEdges, box, revolve, cylinder, ring, transform, orient, tube, pipe, disc,
   paramSurface, torus, helix, gear, Part, TAU,

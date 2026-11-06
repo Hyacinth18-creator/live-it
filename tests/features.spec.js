@@ -253,9 +253,9 @@ test('21 category tabs show each collection; the catalog has 33 models', async (
   await openApp(page);
   await page.click('#catalogToggle');
   const tabs = await page.locator('.tab').allTextContents();
-  expect(tabs.map((t) => t.split(' ·')[0])).toEqual(['Wonders', 'Anatomy', 'Biology', 'Engines', 'Vehicles', 'Machines']);
+  expect(tabs.map((t) => t.split(' ·')[0])).toEqual(['Architecture', 'Anatomy', 'Biology', 'Engines', 'Vehicles', 'Machines']);
   let total = 0;
-  for (const t of ['Wonders', 'Anatomy', 'Biology', 'Engines', 'Vehicles', 'Machines']) {
+  for (const t of ['Architecture', 'Anatomy', 'Biology', 'Engines', 'Vehicles', 'Machines']) {
     await page.locator('.tab', { hasText: t }).click();
     const n = await page.locator('.chip:visible').count();
     expect(n).toBeGreaterThan(0);
@@ -271,4 +271,15 @@ test('21 category tabs show each collection; the catalog has 33 models', async (
   await play(page, 2.2, null);
   await shot(page, '21b-watch-exploded-from-machines-tab');
   noErrors();
+});
+
+test('22 app starts on anatomy and preserves explicit model selection', async ({ page }) => {
+  await openApp(page);
+  expect(await status(page)).toMatchObject({ name: 'Human Brain', category: 'Anatomy', activeCat: 'Anatomy' });
+
+  await page.goto('/?manual=1&dpr=1&model=0');
+  await page.waitForFunction(() => window.liveIt);
+  await page.evaluate(() => window.liveIt.ready());
+  await page.evaluate(() => window.liveIt.advance(1 / 60, null));
+  expect(await status(page)).toMatchObject({ name: 'Turtle Tower', category: 'Architecture', activeCat: 'Architecture' });
 });
