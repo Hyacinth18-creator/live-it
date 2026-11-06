@@ -1,6 +1,6 @@
 // The interaction features: beating heart / breathing lungs, two-hand zoom, point-to-pick + pinch-to-pull, quiz,
 // voice commands (+ read aloud), cut-away cross-section, video recording and the category tabs.
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures.js';
 import { openApp, shot, status, play, indexOf, watchErrors } from './helpers.js';
 
 test.describe.configure({ mode: 'serial' });
@@ -8,7 +8,7 @@ test.describe.configure({ mode: 'serial' });
 /** Select a model and form it with the keyboard (no hand in view). */
 async function formModel(page, name, explode = false) {
   const i = await indexOf(page, name);
-  await page.evaluate((k) => window.wonderSnap.select(k), i);
+  await page.evaluate((k) => window.liveIt.select(k), i);
   await play(page, 0.6, null);
   await page.keyboard.press('f');
   await play(page, 2.8, null);
@@ -20,14 +20,14 @@ async function formModel(page, name, explode = false) {
 /** Feed a pointing hand whose index fingertip sits on a part's label anchor. */
 async function pointAtPart(page, label, seconds = 0.8) {
   await page.evaluate(async ([lab, secs]) => {
-    const W = window.wonderSnap;
+    const W = window.liveIt;
     const aim = () => { const a = W.anchor(lab); if (!a) throw new Error(`no anchor for ${lab}`); return W.synth({ ...W.pointAt(a.x, a.y), pose: 'point' }); };
     await W.advance(0.25, aim());                     // point, let the view settle, then re-aim (like a person does)
     await W.advance(secs, aim());
   }, [label, seconds]);
 }
 const brightPixels = (page) => page.evaluate(() => {
-  const gl = window.wonderSnap.app.renderer.gl, W = gl.drawingBufferWidth, H = gl.drawingBufferHeight, b = new Uint8Array(W * H * 4);
+  const gl = window.liveIt.app.renderer.gl, W = gl.drawingBufferWidth, H = gl.drawingBufferHeight, b = new Uint8Array(W * H * 4);
   gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, b);
   let n = 0; for (let i = 0; i < b.length; i += 4) if (b[i] + b[i + 1] + b[i + 2] > 150) n++;
   return n;
@@ -61,7 +61,7 @@ test('15 two hands: spread apart to zoom in, bring together to zoom out', async 
   await formModel(page, 'Human Eye');
   await play(page, 0.4, { pose: 'fist', cx: 0.30 });                              // first hand alone = primary
   await page.evaluate(async () => {
-    const W = window.wonderSnap, t0 = W.app.t, H = (cx) => W.synth({ pose: 'open', cx, cy: 0.55, s: 0.08 });
+    const W = window.liveIt, t0 = W.app.t, H = (cx) => W.synth({ pose: 'open', cx, cy: 0.55, s: 0.08 });
     await W.advance(0.5, H(0.30), H(0.45));
     await W.advance(1.5, H(0.30), (t) => H(0.45 + 0.35 * Math.min(1, (t - t0 - 0.5) / 1.2)));
   });
@@ -70,7 +70,7 @@ test('15 two hands: spread apart to zoom in, bring together to zoom out', async 
   expect(s.zoom).toBeGreaterThan(1.6);
   await shot(page, '15a-two-hands-zoom-in');
   await page.evaluate(async () => {
-    const W = window.wonderSnap, t0 = W.app.t, H = (cx) => W.synth({ pose: 'open', cx, cy: 0.55, s: 0.08 });
+    const W = window.liveIt, t0 = W.app.t, H = (cx) => W.synth({ pose: 'open', cx, cy: 0.55, s: 0.08 });
     await W.advance(1.6, H(0.30), (t) => H(0.80 - 0.45 * Math.min(1, (t - t0) / 1.2)));
   });
   s = await status(page);
@@ -108,7 +108,7 @@ test('16 point at a part to learn it, pinch to pull it out, click works too', as
   expect((await status(page)).pulled).toBe(false);
   await play(page, 0.5, null);
   const a = await page.evaluate(() => {                                            // a part clear of the panels and of other parts
-    const W = window.wonderSnap, P = W.app.model.labels.map((l) => ({ l: l.label, ...W.anchor(l.label) }));
+    const W = window.liveIt, P = W.app.model.labels.map((l) => ({ l: l.label, ...W.anchor(l.label) }));
     const far = (p) => P.every((q) => q === p || Math.hypot(q.x - p.x, q.y - p.y) > 80);
     return P.find((p) => p.x > 360 && p.x < 1250 && p.y > 150 && p.y < 720 && p.l !== 'Hippocampus' && far(p));
   });
@@ -141,7 +141,7 @@ test('17 quiz: find the named part by pointing, with score', async ({ page }) =>
   await play(page, 2.0, null);                                                     // next question appears
   s = await status(page);
   expect([s.quiz.phase, s.quiz.asked]).toEqual(['ask', 2]);
-  const wrong = await page.evaluate((target) => window.wonderSnap.app.model.labels.map((l) => l.label).find((l) => l !== target && window.wonderSnap.anchor(l)), s.quiz.target);
+  const wrong = await page.evaluate((target) => window.liveIt.app.model.labels.map((l) => l.label).find((l) => l !== target && window.liveIt.anchor(l)), s.quiz.target);
   await pointAtPart(page, wrong);                                                  // wrong answer -> the right part is revealed
   s = await status(page);
   expect(s.quiz.score).toBe(1);
@@ -170,30 +170,30 @@ test('18 voice commands drive the app and parts are read aloud', async ({ page }
   await openApp(page);
   await page.keyboard.press('m');                                                  // voice on (read-aloud on)
   expect((await status(page)).voice.on).toBe(true);
-  expect(await page.evaluate(() => window.wonderSnap.voice('show me the human heart'))).toEqual(['Human Heart']);
+  expect(await page.evaluate(() => window.liveIt.voice('show me the human heart'))).toEqual(['Human Heart']);
   await play(page, 3.2, null);
   let s = await status(page);
   expect([s.state, s.name]).toEqual(['formed', 'Human Heart']);
-  expect(await page.evaluate(() => window.wonderSnap.voice('open it up'))).toContain('explode');
+  expect(await page.evaluate(() => window.liveIt.voice('open it up'))).toContain('explode');
   await play(page, 2.2, null);
   expect((await status(page)).explode).toBeGreaterThan(0.95);
-  expect(await page.evaluate(() => window.wonderSnap.voice('where is the right atrium'))).toEqual(['Right atrium']);
+  expect(await page.evaluate(() => window.liveIt.voice('where is the right atrium'))).toEqual(['Right atrium']);
   await play(page, 0.3, null);
   s = await status(page);
   expect(s.selected).toBe('Right atrium');
   expect(await page.evaluate(() => window.__spoken.some((t) => t.includes('Right atrium')))).toBe(true);
   await shot(page, '18a-voice-selects-right-atrium');
-  expect(await page.evaluate(() => window.wonderSnap.voice('what does it do'))).toEqual(['describe']);
+  expect(await page.evaluate(() => window.liveIt.voice('what does it do'))).toEqual(['describe']);
   expect(await page.evaluate(() => window.__spoken.at(-1))).toContain('receives blood from the body');
-  expect(await page.evaluate(() => window.wonderSnap.voice('zoom in'))).toEqual(['zoom in']);
-  expect(await page.evaluate(() => window.wonderSnap.voice('put it back together'))).toContain('assemble');
-  expect(await page.evaluate(() => window.wonderSnap.voice('next one'))).toEqual(['next']);
+  expect(await page.evaluate(() => window.liveIt.voice('zoom in'))).toEqual(['zoom in']);
+  expect(await page.evaluate(() => window.liveIt.voice('put it back together'))).toContain('assemble');
+  expect(await page.evaluate(() => window.liveIt.voice('next one'))).toEqual(['next']);
   await play(page, 3.2, null);
   expect((await status(page)).name).toBe('Kidney');
-  expect(await page.evaluate(() => window.wonderSnap.voice('go to the rocket'))).toEqual(['Saturn V Rocket']);
+  expect(await page.evaluate(() => window.liveIt.voice('go to the rocket'))).toEqual(['Saturn V Rocket']);
   await play(page, 0.2, null);
   expect((await status(page)).activeCat).toBe('Vehicles');                         // the catalog tab follows
-  expect(await page.evaluate(() => window.wonderSnap.voice('blah blah'))).toEqual([]);
+  expect(await page.evaluate(() => window.liveIt.voice('blah blah'))).toEqual([]);
   await expect(page.locator('#toast')).toContainText('not understood');
   noErrors();
 });
@@ -206,7 +206,7 @@ test('19 cut-away: the hand slides a cutting plane through the model', async ({ 
   await play(page, 0.5, null);
   const full = await brightPixels(page);
   await page.keyboard.press('x');
-  const c = await page.evaluate(() => { const W = window.wonderSnap, a = W.app; return a.toNorm([(a.projView[12] / a.projView[15] * 0.5 + 0.5) * a.overlay.width, 0])[0]; });
+  const c = await page.evaluate(() => { const W = window.liveIt, a = W.app; return a.toNorm([(a.projView[12] / a.projView[15] * 0.5 + 0.5) * a.overlay.width, 0])[0]; });
   await play(page, 1.2, { pose: 'fist', cx: c - 0.02, cy: 0.6 });                // palm a bit left of the model centre
   let s = await status(page);
   expect(s.cut.on).toBe(true);
@@ -228,7 +228,7 @@ test('19 cut-away: the hand slides a cutting plane through the model', async ({ 
 test('20 record a video of the session (real-time)', async ({ page }) => {
   const noErrors = watchErrors(page);
   await page.goto('/?autostart=nocamera&n=150000&model=12');
-  await page.waitForFunction(() => window.wonderSnap?.status().uploaded === 12);
+  await page.waitForFunction(() => window.liveIt?.status().uploaded === 12);
   await page.keyboard.press('Space');
   await page.keyboard.press('k');
   await page.waitForTimeout(600);
@@ -239,7 +239,7 @@ test('20 record a video of the session (real-time)', async ({ page }) => {
   const [download] = await Promise.all([page.waitForEvent('download'), page.keyboard.press('k')]);
   const path = `.tmp/${download.suggestedFilename()}`;
   await download.saveAs(path);
-  expect(download.suggestedFilename()).toMatch(/^wondersnap-.*\.webm$/);
+  expect(download.suggestedFilename()).toMatch(/^live-it-.*\.webm$/);
   const s = await status(page);
   expect(s.recording).toBe(false);
   expect(s.lastRecording.size).toBeGreaterThan(20_000);
@@ -251,6 +251,7 @@ test('20 record a video of the session (real-time)', async ({ page }) => {
 test('21 category tabs show each collection; the catalog has 33 models', async ({ page }) => {
   const noErrors = watchErrors(page);
   await openApp(page);
+  await page.click('#catalogToggle');
   const tabs = await page.locator('.tab').allTextContents();
   expect(tabs.map((t) => t.split(' ·')[0])).toEqual(['Wonders', 'Anatomy', 'Biology', 'Engines', 'Vehicles', 'Machines']);
   let total = 0;

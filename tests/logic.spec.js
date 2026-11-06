@@ -1,7 +1,7 @@
 // Pure logic (ported from tests/test_all.py + new explode/peace behaviour), executed in the browser.
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures.js';
 
-test.beforeEach(async ({ page }) => { await page.goto('/?manual=1&n=5000'); await page.waitForFunction(() => window.wonderSnap); });
+test.beforeEach(async ({ page }) => { await page.goto('/?manual=1&n=5000'); await page.waitForFunction(() => window.liveIt); });
 
 test('gestures: poses at 4 rotations, peace sign, openness, debouncer', async ({ page }) => {
   const r = await page.evaluate(async () => {
@@ -14,11 +14,11 @@ test('gestures: poses at 4 rotations, peace sign, openness, debouncer', async ({
     const changes = seq.map((p) => deb.update(p)).filter(([, c]) => c).map(([s]) => s);
     const d2 = new G.PoseDebouncer(4);
     const peaceChanges = [...Array(7).fill('peace')].map((p) => d2.update(p)[1]);
-    return { poses, none: G.classify(null), snapPressed: G.classify(hand({ pose: 'snap_pressed' })), open, changes, peaceChanges };
+    return { poses, none: G.classify(null), three: G.classify(hand({ pose: 'three' })), open, changes, peaceChanges };
   });
   for (const row of r.poses) expect(row).toEqual(['open', 'fist', 'point', 'peace']);
   expect(r.none).toBe('none');
-  expect(r.snapPressed).not.toBe('fist');
+  expect(r.three).toBe('three');
   expect(r.open[0]).toBeLessThan(0.05);                      // fist = 0
   expect(r.open[6]).toBeGreaterThan(0.95);                   // open = 1
   for (let i = 1; i < r.open.length; i++) expect(r.open[i]).toBeGreaterThanOrEqual(r.open[i - 1]);   // monotonic
@@ -77,7 +77,7 @@ test('static gesture profiles preserve defaults and recognize only intended marg
       const thumb = clamp01((dist(lm[G.THUMB_TIP], lm[17]) / G.handScale(lm) - 0.9) / (1.55 - 0.9));
       return 0.8 * (fingers / 4) + 0.2 * thumb;
     };
-    const corpus = [null, ...['open', 'fist', 'point', 'peace', 'pinch', 'snap_pressed', 'snap_released'].map((pose) => hand({ pose })),
+    const corpus = [null, ...['open', 'fist', 'point', 'peace', 'pinch'].map((pose) => hand({ pose })),
       ...Array.from({ length: 21 }, (_, i) => hand({ pose: 'partial', f: i / 20 }))];
     const canonical = ['open', 'fist', 'point', 'peace'].map((pose) => hand({ pose }));
     const partial = Array.from({ length: 21 }, (_, i) => hand({ pose: 'partial', f: i / 20 }));
@@ -101,7 +101,7 @@ test('static gesture profiles preserve defaults and recognize only intended marg
       marginal: Object.fromEntries(Object.entries(marginal).map(([name, lm]) => [name, [G.classify(lm, G.STANDARD), G.classify(lm, G.FORGIVING)]])),
       marginalFistPinched: G.pinched(marginal.fist),
       ambiguous: [0.45, 0.5, 0.55].map((f) => [G.classify(hand({ pose: 'partial', f }), G.STANDARD), G.classify(hand({ pose: 'partial', f }), G.FORGIVING)]),
-      safetyPoses: ['pinch', 'snap_pressed', 'snap_released', 'fist', 'open'].map((pose) => {
+      safetyPoses: ['pinch', 'three', 'fist', 'open'].map((pose) => {
         const lm = hand({ pose });
         return [pose, G.classify(lm, G.STANDARD), G.classify(lm, G.FORGIVING)];
       }),
@@ -135,7 +135,7 @@ test('static gesture profiles preserve defaults and recognize only intended marg
   expect(r.marginalFistPinched).toBe(false);
   expect(r.ambiguous).toEqual([['other', 'other'], ['other', 'other'], ['other', 'other']]);
   expect(r.safetyPoses).toEqual([
-    ['pinch', 'other', 'other'], ['snap_pressed', 'point', 'point'], ['snap_released', 'point', 'point'],
+    ['pinch', 'other', 'other'], ['three', 'three', 'three'],
     ['fist', 'fist', 'fist'], ['open', 'open', 'open'],
   ]);
   expect(r.partialSafety).toEqual([
@@ -154,13 +154,13 @@ test('static gesture profiles preserve defaults and recognize only intended marg
   expect(r.interpretation.nearlyOpen[1]).toBe(1);
 });
 
-test('controller bounds presets while pinch and snap remain Standard-only', async ({ page }) => {
+test('controller bounds presets while pinch and three-finger trigger stay stable', async ({ page }) => {
   const r = await page.evaluate(async () => {
     const G = await import('/src/logic/gestures.js');
     const { Controller } = await import('/src/logic/controller.js');
     const { hand } = await import('/src/logic/synth.js');
     const rep = (lm, n) => Array(n).fill(lm);
-    const runSnap = (preset, seq) => {
+    const runTrigger = (preset, seq) => {
       const c = new Controller(4); c.setGestureSensitivity(preset);
       let t = 0, fires = 0;
       for (const lm of seq) { fires += c.onHand(lm, t) ? 1 : 0; t += 1 / 30; }
@@ -182,16 +182,15 @@ test('controller bounds presets while pinch and snap remain Standard-only', asyn
       for (let i = 0; i < 8; i++) c.onHand(marginalFist, i / 30);
       return [c.rawPose, c.pose, c.pinch, c.pinchStart];
     };
-    const P = hand({ pose: 'snap_pressed' }), R = hand({ pose: 'snap_released' });
-    const F = hand({ pose: 'fist' }), O = hand({ pose: 'open' });
-    const lerp = (a, b, k) => a.map((p, i) => [p[0] + (b[i][0] - p[0]) * k, p[1] + (b[i][1] - p[1]) * k]);
+    const T = hand({ pose: 'three' }), F = hand({ pose: 'fist' }), O = hand({ pose: 'open' }), V = hand({ pose: 'peace' });
     const sequences = {
-      clean: [...rep(P, 5), ...rep(R, 3)],
+      heldThree: rep(T, 20),
+      open: rep(O, 20),
+      peace: rep(V, 20),
       fistOpen: [...rep(F, 6), ...rep(O, 4)],
-      fistOpenBlur: [...rep(F, 6), lerp(F, O, 0.5), O, O],
     };
-    const snap = Object.fromEntries(['standard', 'forgiving'].map((preset) => [preset,
-      Object.fromEntries(Object.entries(sequences).map(([name, seq]) => [name, runSnap(preset, seq)]))]));
+    const trigger = Object.fromEntries(['standard', 'forgiving'].map((preset) => [preset,
+      Object.fromEntries(Object.entries(sequences).map(([name, seq]) => [name, runTrigger(preset, seq)]))]));
     const def = new Controller(4);
     def.onHand(O, 0);
     const selected = [def.gestureSensitivity, def.gestureProfile === G.STANDARD, def.rawPose, def.openness];
@@ -202,7 +201,7 @@ test('controller bounds presets while pinch and snap remain Standard-only', asyn
       reset: [def.gestureSensitivity, def.gestureProfile === G.STANDARD],
       pinch: { standard: pinchTrace('standard'), forgiving: pinchTrace('forgiving') },
       marginalFist: { standard: marginalFistTrace('standard'), forgiving: marginalFistTrace('forgiving') },
-      snap,
+      trigger,
     };
   });
 
@@ -214,30 +213,27 @@ test('controller bounds presets while pinch and snap remain Standard-only', asyn
   expect(r.pinch.forgiving).toEqual(r.pinch.standard);
   expect(r.marginalFist.standard).toEqual(['other', 'other', false, false]);
   expect(r.marginalFist.forgiving).toEqual(['fist', 'fist', false, false]);
-  expect(r.snap.standard).toEqual({ clean: 1, fistOpen: 0, fistOpenBlur: 0 });
-  expect(r.snap.forgiving).toEqual(r.snap.standard);
+  expect(r.trigger.standard).toEqual({ heldThree: 1, open: 0, peace: 0, fistOpen: 0 });
+  expect(r.trigger.forgiving).toEqual(r.trigger.standard);
 });
 
-test('snap detector: real sequences fire exactly when they should', async ({ page }) => {
+test('three-finger trigger fires once while held and rearms after release', async ({ page }) => {
   const r = await page.evaluate(async () => {
     const G = await import('/src/logic/gestures.js');
     const { hand } = await import('/src/logic/synth.js');
-    const fire = (seq) => { const sn = new G.SnapDetector(); let t = 0, n = 0; for (const lm of seq) { n += sn.update(lm, t) ? 1 : 0; t += 1 / 30; } return n; };
-    const P = hand({ pose: 'snap_pressed' }), R = hand({ pose: 'snap_released' }), O = hand({ pose: 'open' }), F = hand({ pose: 'fist' });
-    const lerp = (a, b, k) => a.map((p, i) => [p[0] + (b[i][0] - p[0]) * k, p[1] + (b[i][1] - p[1]) * k]);
+    const fire = (seq) => { const trigger = new G.ThreeFingerTrigger(); let t = 0, n = 0; for (const lm of seq) { n += trigger.update(lm, t) ? 1 : 0; t += 1 / 30; } return n; };
+    const T = hand({ pose: 'three' }), O = hand({ pose: 'open' }), F = hand({ pose: 'fist' }), V = hand({ pose: 'peace' });
     const rep = (x, n) => Array(n).fill(x);
     return {
-      clean: fire([...rep(P, 5), ...rep(R, 3)]),
-      blur: fire([...rep(P, 5), null, null, ...rep(R, 3)]),
-      held: fire([...rep(P, 40), ...rep(null, 30)]),
-      slow: fire([...rep(P, 5), ...Array.from({ length: 30 }, (_, i) => lerp(P, O, i / 29))]),
-      cooldown: fire([...rep(P, 4), ...rep(R, 2), ...rep(P, 4), ...rep(R, 2)]),
+      shortHold: fire(rep(T, 4)),
+      held: fire(rep(T, 40)),
+      rearmed: fire([...rep(T, 5), ...rep(F, 30), ...rep(T, 5)]),
+      open: fire(rep(O, 20)),
+      peace: fire(rep(V, 20)),
       fistOpen: fire([...rep(F, 6), ...rep(O, 4)]),
-      fistOpenBlur: fire([...rep(F, 6), lerp(F, O, 0.5), O, O]),
-      handOpeningForExplode: fire(Array.from({ length: 40 }, (_, i) => hand({ pose: 'partial', f: i / 39 }))),
     };
   });
-  expect(r).toEqual({ clean: 1, blur: 1, held: 0, slow: 0, cooldown: 1, fistOpen: 0, fistOpenBlur: 0, handOpeningForExplode: 0 });
+  expect(r).toEqual({ shortHold: 0, held: 1, rearmed: 2, open: 0, peace: 0, fistOpen: 0 });
 });
 
 test('state machine: original story, wrap-around, machines explode instead of skipping, peace = next', async ({ page }) => {
@@ -280,7 +276,7 @@ test('controller: story from landmarks, kick survives the render tick, dissolve 
     const out = [];
     const c = new Controller(8);
     let t = feed(c, rep('open', 10), 0); out.push(c.state.state);
-    t = feed(c, [...rep('snap_pressed', 4), ...rep('snap_released', 2)], t); out.push(c.state.state);
+    t = feed(c, rep('three', 6), t); out.push(c.state.state);
     t = feed(c, [...rep('open', 10), ...rep('fist', 10)], t); out.push(c.state.state, c.state.index);
     t = feed(c, [...rep('fist', 3, { angle: 0.1 }), ...rep('open', 10)], t); out.push(c.state.state, c.state.index);
     t = feed(c, [...rep(null, 5), ...rep('fist', 10)], t); out.push(c.state.state);
@@ -289,7 +285,7 @@ test('controller: story from landmarks, kick survives the render tick, dissolve 
     const d = new Controller(8); d.keySnap(0); d.keySnap(1); const dis = d.state.state; d.tick(2.5);
     // machine: opening the hand only changes openness, the model stays formed
     const m = new Controller(4, () => true);
-    let tm = feed(m, [...rep('snap_pressed', 4), ...rep('snap_released', 2), ...rep('fist', 10)], 0);
+    let tm = feed(m, [...rep('three', 6), ...rep('fist', 10)], 0);
     const op = [];
     for (let i = 0; i <= 20; i++) { m.onHand(hand({ pose: 'partial', f: i / 20 }), tm); tm += 1 / 30; op.push(+m.openness.toFixed(2)); }
     feed(m, rep('open', 10), tm);
@@ -399,7 +395,7 @@ test('point & pinch poses, and the voice-command parser', async ({ page }) => {
     const say = (t, labels = []) => parseCommand(t, CATALOG, labels).map((a) => a.type === 'model' ? a.name : a.type === 'part' ? labels[a.index].label : a.type);
     return {
       point: [0, 0.7, -0.5].map((angle) => G.classify(hand({ pose: 'point', angle }))),
-      pinch: [G.pinched(hand({ pose: 'pinch' })), G.pinched(hand({ pose: 'fist' })), G.pinched(hand({ pose: 'open' })), G.pinched(hand({ pose: 'snap_pressed' }))],
+      pinch: [G.pinched(hand({ pose: 'pinch' })), G.pinched(hand({ pose: 'fist' })), G.pinched(hand({ pose: 'open' })), G.pinched(hand({ pose: 'three' }))],
       cmds: {
         a: say('show me the heart'), b: say('show me the human brain and explode it'), c: say('where is the right atrium', heart),
         d: say('left atrium please', heart), e: say('next'), f: say('start the quiz'), g: say('stop quiz'), h: say('zoom in'),

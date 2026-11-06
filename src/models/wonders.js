@@ -1,5 +1,5 @@
 // World wonders built purely from math + real-world measurements (meters, y up, viewer looks along -z).
-// JS port of wondersnap/wonders.py (8 wonders) + 3 new monuments (Big Ben, Christ the Redeemer, Sydney Opera House).
+// JS port of live-it/wonders.py (8 wonders) + 3 new monuments (Big Ben, Christ the Redeemer, Sydney Opera House).
 import {
   Part, line, polyline, tri, quad, boxSurface, boxEdges, revolve, cylinder, ring, transform, flatten, tube,
   paramSurface, ellipsoid, disc, TAU,

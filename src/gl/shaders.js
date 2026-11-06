@@ -1,4 +1,4 @@
-// GLSL ES 3.00 ports of wondersnap/shaders/*.vert|frag (WebGL2). The update step runs with transform
+// GLSL ES 3.00 ports of live-it/shaders/*.vert|frag (WebGL2). The update step runs with transform
 // feedback exactly like the desktop version. UPDATE_VS MUST stay numerically identical to src/logic/simRef.js.
 
 export const UPDATE_VS = `#version 300 es

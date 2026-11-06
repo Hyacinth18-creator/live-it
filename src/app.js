@@ -1,16 +1,17 @@
-// WonderSnap (browser): snap -> particle burst, fist -> form a model, open hand -> next wonder or EXPLODED VIEW
+// Live It (browser): three fingers -> particle burst, fist -> form a model, open hand -> next wonder or EXPLODED VIEW
 // (hand openness = how far apart the parts fly), twist = rotate, ✌ = next, ☝ point = pick a part, pinch = pull it
-// out, two hands = zoom, snap = dissolve. Plus quiz, voice, cut-away, recording, beating heart / breathing lungs.
+// out, two hands = zoom, three fingers = dissolve. Plus quiz, voice, cut-away, recording, beating heart / breathing lungs.
 // MediaPipe (hands) + WebGL2 (GPU particles via transform feedback) + procedural models.
 import { CATALOG, isMachine, buildModel } from './models/catalog.js';
 import { Controller } from './logic/controller.js';
-import { OPEN, FIST, PEACE, POINT, NONE } from './logic/gestures.js';
+import { OPEN, FIST, PEACE, POINT, THREE, NONE } from './logic/gestures.js';
 import { IDLE, SPHERE, FORMED, DISSOLVE, SIM } from './logic/state.js';
 import { Renderer, perspective, mul4, translate4, rotY4, project } from './gl/renderer.js';
 import { HandCamera } from './hands.js';
 import { hand as synthHand } from './logic/synth.js';
 import { rotX, rotY, matMul, matVec, deg } from './lib/vec.js';
 import { parseCommand, Voice, speak, Recorder } from './features.js';
+import { ExperienceHub } from './experiences.js';
 
 const qs = new URLSearchParams(location.search);
 const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
@@ -23,7 +24,7 @@ const QUIZ_LEN = 5;
 
 const CFG = {
   n: clamp(parseInt(qs.get('n'), 10) || 200000, 5000, 1000000),
-  manual: qs.get('manual') === '1',             // tests: deterministic clock, frames only via wonderSnap.advance()
+  manual: qs.get('manual') === '1',             // tests: deterministic clock, frames only via liveIt.advance()
   autostart: qs.get('autostart'),                // 'camera' | 'nocamera'
   start: clamp(parseInt(qs.get('model'), 10) || 0, 0, CATALOG.length - 1),
   dpr: qs.get('dpr') ? parseFloat(qs.get('dpr')) : Math.min(window.devicePixelRatio || 1, 2),
@@ -32,8 +33,8 @@ const CFG = {
 
 const HAND_EDGES = [[0, 1], [1, 2], [2, 3], [3, 4], [0, 5], [5, 6], [6, 7], [7, 8], [5, 9], [9, 10], [10, 11], [11, 12],
   [9, 13], [13, 14], [14, 15], [15, 16], [13, 17], [17, 18], [18, 19], [19, 20], [0, 17]];
-const POSE_UI = { [OPEN]: ['✋', 'Open hand'], [FIST]: ['✊', 'Fist'], [PEACE]: ['✌', 'Peace'], [POINT]: ['☝', 'Pointing'], other: ['🤚', 'Moving'], [NONE]: ['·', 'No hand'] };
-const POSE_COLOR = { [OPEN]: '#66e0ff', [FIST]: '#ffd166', [PEACE]: '#ff6bd6', [POINT]: '#7dff9b', other: '#e8f1ff', [NONE]: '#e8f1ff' };
+const POSE_UI = { [OPEN]: ['✋', 'Open hand'], [FIST]: ['✊', 'Fist'], [PEACE]: ['✌', 'Peace'], [POINT]: ['☝', 'Pointing'], [THREE]: ['3', 'Three fingers'], other: ['🤚', 'Moving'], [NONE]: ['·', 'No hand'] };
+const POSE_COLOR = { [OPEN]: '#66e0ff', [FIST]: '#ffd166', [PEACE]: '#ff6bd6', [POINT]: '#7dff9b', [THREE]: '#d3ae73', other: '#e8f1ff', [NONE]: '#e8f1ff' };
 const rgbCss = (c, a = 1) => `rgba(${Math.round(c[0] * 255)}, ${Math.round(c[1] * 255)}, ${Math.round(c[2] * 255)}, ${a})`;
 const CATEGORIES = [...new Set(CATALOG.map((d) => d.category))];
 
@@ -82,12 +83,12 @@ class Demo {
     const at = { cx: 0.2, cy: 0.55, s: 0.09 };
     const H = (pose) => () => synthHand({ ...at, pose });
     const add = (dur, hand, onStart) => this.segs.push({ dur, hand, onStart });
-    const snap = () => { add(0.13, H('snap_pressed')); add(0.3, H('snap_released')); };
+    const summon = () => { add(0.3, H('three')); add(0.3, () => null); };
     const pick = (i) => () => { app.ctl.state.index = i; app.ctl.state.targetDirty = true; app.store.request(i); };
-    if (app.ctl.state.state !== IDLE) { snap(); add(1.5, () => null); }
+    if (app.ctl.state.state !== IDLE) { summon(); add(1.5, () => null); }
     for (const name of ['Eiffel Tower', 'Human Brain', 'Human Heart', 'Sports Car']) {
       const i = CATALOG.findIndex((d) => d.name === name);
-      add(0.4, () => null, pick(i)); snap(); add(1.4, H('open')); add(3.0, H('fist'));
+      add(0.4, () => null, pick(i)); summon(); add(1.4, H('open')); add(3.0, H('fist'));
       if (isMachine(i)) {
         add(2.6, (u) => synthHand({ ...at, pose: 'partial', f: u }));
         add(1.4, H('open'));
@@ -95,7 +96,7 @@ class Demo {
         add(2.2, (u) => synthHand({ ...at, pose: 'partial', f: 1 - u }));
         add(1.2, H('fist'));
       } else add(1.5, H('fist'));
-      snap(); add(1.6, () => null);
+      summon(); add(1.6, () => null);
     }
   }
   tick(t) {
@@ -114,6 +115,7 @@ class App {
   constructor() {
     const $ = (id) => document.getElementById(id);
     this.$ = $;
+    this.experiences = new ExperienceHub($('experience'), this);
     this.canvas = $('gl'); this.overlay = $('overlay'); this.octx = this.overlay.getContext('2d');
     this.video = $('cam');
     this.renderer = new Renderer(this.canvas, CFG.n, { preserve: CFG.manual });
@@ -150,8 +152,9 @@ class App {
   resize() {
     const w = innerWidth, h = innerHeight, dpr = CFG.dpr;
     for (const c of [this.canvas, this.overlay]) { c.width = Math.round(w * dpr); c.height = Math.round(h * dpr); }
-    const aspect = w / h, wide = aspect > 1.25 && w > 820;
-    this.offX = wide ? 0.9 * Math.min(1.15, aspect / 1.78) : 0;       // the model sits in the right third (like the demo)
+    const aspect = w / h;
+    this.offX = 0;
+    const wide = aspect > 1.25 && w > 820;
     this.offY = wide ? 0 : 0.22;
     this.dist = Math.max(3.4, 1.25 / (Math.tan((20 * Math.PI) / 180) * aspect));
     this.proj = perspective(40, aspect, 0.05, 30);
@@ -179,6 +182,7 @@ class App {
     }
     if (this.autoFormAt !== null && t >= this.autoFormAt) { this.autoFormAt = null; if (st.state === SPHERE) ctl.keyPose(FIST, t); }
     ctl.tick(t);
+    this.experiences.update(ctl);
 
     // 2. make sure the current model is on the GPU (built in the worker)
     if (st.targetDirty) {
@@ -265,10 +269,12 @@ class App {
     this.projView = mul4(this.proj, translate4(this.offX * (1 - 0.45 * this.explode), this.offY, -this.dist / this.zoom));
 
     // 7. parts: screen anchors, point-to-pick (dwell), pinch-to-pull, quiz, cut-away plane
-    this.computeAnchors(formed && machine && m, rot, exCenter, scale);
-    this.updatePicking(t, pointing, formed && machine);
-    this.pullAmt += ((this.pulled && this.sel >= 0 ? 1 : 0) - this.pullAmt) * (1 - Math.exp(-dt * 6));
-    this.updateQuiz(t, formed && machine && m);
+    if (!this.experiences.active) {
+      this.computeAnchors(formed && machine && m, rot, exCenter, scale);
+      this.updatePicking(t, pointing, formed && machine);
+      this.pullAmt += ((this.pulled && this.sel >= 0 ? 1 : 0) - this.pullAmt) * (1 - Math.exp(-dt * 6));
+      this.updateQuiz(t, formed && machine && m);
+    } else this.anchors = [];
     if (this.cut.on) {
       if (vis && !busyHand && ctl.landmarks) {
         const c0 = project(this.projView, [0, 0, 0]), rr = this.globeRadiusPx();
@@ -446,7 +452,7 @@ class App {
     this.lastRecording = { size: blob.size, type: blob.type };
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `wondersnap-${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}.webm`;
+    a.download = `live-it-${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}.webm`;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 10000);
     this.toast(`💾 Saved ${(blob.size / 1e6).toFixed(1)} MB video`);
@@ -558,31 +564,50 @@ class App {
   // ------------------------------------------------------------ HUD
   buildUI() {
     const tabs = this.$('catTabs'), chips = this.$('catChips');
+    const setTabOrientation = () => tabs.setAttribute('aria-orientation', matchMedia('(max-width: 820px)').matches ? 'horizontal' : 'vertical');
+    setTabOrientation(); window.addEventListener('resize', setTabOrientation, { passive: true });
     this.tabs = {}; this.chips = [];
     for (const c of CATEGORIES) {
       const b = document.createElement('button');
-      b.className = 'tab'; b.textContent = `${c} · ${CATALOG.filter((d) => d.category === c).length}`; b.dataset.cat = c;
+      b.className = 'tab'; b.type = 'button'; b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', 'false'); b.tabIndex = -1;
+      b.textContent = `${c} · ${CATALOG.filter((d) => d.category === c).length}`; b.dataset.cat = c;
       b.addEventListener('click', () => this.showCategory(c));
+      b.addEventListener('keydown', (event) => {
+        if (!['ArrowDown', 'ArrowRight', 'ArrowUp', 'ArrowLeft'].includes(event.key)) return;
+        event.preventDefault();
+        const categories = Object.keys(this.tabs), direction = ['ArrowDown', 'ArrowRight'].includes(event.key) ? 1 : -1;
+        const next = (categories.indexOf(c) + direction + categories.length) % categories.length;
+        this.tabs[categories[next]].focus(); this.showCategory(categories[next]);
+      });
       tabs.appendChild(b); this.tabs[c] = b;
     }
     CATALOG.forEach((d, i) => {
       const b = document.createElement('button');
       b.className = 'chip'; b.dataset.index = i; b.dataset.cat = d.category;
       b.innerHTML = `<i style="color:${rgbCss(d.color)};background:${rgbCss(d.color)}"></i>${d.name}`;
-      b.addEventListener('click', () => this.selectModel(i));
+      b.addEventListener('click', () => {
+        this.selectModel(i);
+        document.body.classList.remove('catalog-open');
+        this.$('catalog').setAttribute('aria-hidden', 'true'); this.$('catalogToggle').setAttribute('aria-expanded', 'false');
+        this.$('catalogToggle').focus();
+      });
       chips.appendChild(b); this.chips[i] = b;
     });
     this.showCategory(this.activeCat);
   }
   showCategory(c) {
     this.activeCat = c;
-    for (const [k, b] of Object.entries(this.tabs)) b.classList.toggle('active', k === c);
+    for (const [k, b] of Object.entries(this.tabs)) {
+      const active = k === c;
+      b.classList.toggle('active', active); b.setAttribute('aria-selected', String(active)); b.tabIndex = active ? 0 : -1;
+    }
+    this.$('catChips').setAttribute('aria-labelledby', this.tabs[c].id || (this.tabs[c].id = `tab-${c.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`));
     this.chips.forEach((b) => { b.hidden = b.dataset.cat !== c; });
   }
 
   guideItems(machine) {
     return [
-      ['snap', '🫰', '<b>Snap</b> — summon particles / dissolve'],
+      ['three', '3', '<b>Three fingers</b> — summon / dissolve particles'],
       ['fist', '✊', machine ? '<b>Fist</b> — put it together' : '<b>Fist</b> — form the wonder'],
       ['open', '✋', machine ? '<b>Open slowly</b> — explode it, see inside' : '<b>Open hand</b> — morph to the next wonder'],
       ['twist', '🔄', '<b>Twist / raise hand</b> — rotate & tilt it'],
@@ -620,7 +645,7 @@ class App {
     $('openBar').style.width = `${Math.round(op * 100)}%`; $('openPct').textContent = `${Math.round(op * 100)}%`;
     $('explodePct').textContent = `${Math.round(this.explode * 100)}%`;
     if (!this.sliderActive) $('explodeSlider').value = Math.round(this.explode * 100);
-    const hot = st.state === IDLE || st.state === DISSOLVE ? 'snap' : st.state === SPHERE ? 'fist' : 'open';
+    const hot = st.state === IDLE || st.state === DISSOLVE ? 'three' : st.state === SPHERE ? 'fist' : 'open';
     const gk = `${isM}|${hot}`;
     if (this.guideKey !== gk) {
       this.guideKey = gk;
@@ -654,7 +679,7 @@ class App {
     $('stats').innerHTML = `<b>${this.fps.toFixed(0)}</b> fps · <b>${(CFG.n / 1000).toFixed(0)}k</b> particles<br>${cam}${extra ? '<br>' + extra : ''}`;
     for (const e of st.events.splice(0)) {
       const name = CATALOG[st.index].name;
-      if (e === 'snap') this.toast('🫰 Snap! Particles summoned');
+      if (e === 'snap') this.toast('Ⅲ Three fingers · particles summoned');
       else if (e === 'form') this.toast(isM ? `✊ Assembling: ${name}` : `✊ Forming ${name}`);
       else if (e === 'next') this.toast(`✌ Next: ${name}`);
       else if (e === 'select') this.toast(`→ ${name}`);
@@ -679,6 +704,7 @@ class App {
     sensitivity.value = ctl.gestureSensitivity;
     sensitivity.addEventListener('change', () => { sensitivity.value = ctl.setGestureSensitivity(sensitivity.value); });
     addEventListener('keydown', (e) => {
+      if (this.experiences.active) return;
       if ((e.target instanceof HTMLInputElement && e.target.type !== 'range') || e.target instanceof HTMLSelectElement) return;
       const k = e.key.toLowerCase(), st = ctl.state;
       if (k !== 'd') this.stopDemo();
@@ -767,7 +793,7 @@ class App {
       this.cam = this.cam || new HandCamera(this.video);
       await this.cam.start((s) => { msg.textContent = s; if (s) this.toast(s); });
       this.camOn = true; this.$('bCam').classList.add('on');
-      this.toast('📷 Camera on — snap your fingers!');
+      this.toast('📷 Camera on — hold three fingers to summon or dissolve');
       return true;
     } catch (e) {
       console.error(e);
@@ -813,12 +839,70 @@ function boot() {
   }
   const start = document.getElementById('start');
   const hideStart = () => { start.hidden = true; };
+  const panel = document.getElementById('panel'), panelToggle = document.getElementById('panelToggle');
+  const catalog = document.getElementById('catalog'), catalogToggle = document.getElementById('catalogToggle');
+  const toolsDrawer = document.getElementById('toolsDrawer'), toolsToggle = document.getElementById('toolsToggle');
+  let panelCloseTimer, toolsCloseTimer;
+  const closePanel = () => {
+    clearTimeout(panelCloseTimer); panelCloseTimer = null;
+    document.body.classList.remove('panel-open');
+    panel.setAttribute('aria-hidden', 'true'); panelToggle.setAttribute('aria-expanded', 'false');
+    panelToggle.setAttribute('aria-label', 'Show scene details');
+    if (panel.contains(document.activeElement)) panelToggle.focus();
+  };
+  const closeCatalog = () => {
+    document.body.classList.remove('catalog-open');
+    catalog.setAttribute('aria-hidden', 'true'); catalogToggle.setAttribute('aria-expanded', 'false');
+    if (catalog.contains(document.activeElement)) catalogToggle.focus();
+  };
+  const closeTools = () => {
+    clearTimeout(toolsCloseTimer); toolsCloseTimer = null;
+    document.body.classList.remove('tools-open');
+    toolsDrawer.setAttribute('aria-hidden', 'true'); toolsToggle.setAttribute('aria-expanded', 'false');
+    if (toolsDrawer.contains(document.activeElement)) toolsToggle.focus();
+  };
+  panelToggle.onclick = () => {
+    if (document.body.classList.contains('panel-open')) { closePanel(); return; }
+    closeCatalog(); closeTools();
+    document.body.classList.add('panel-open');
+    panel.setAttribute('aria-hidden', 'false'); panelToggle.setAttribute('aria-expanded', 'true');
+    panelToggle.setAttribute('aria-label', 'Hide scene details');
+    clearTimeout(panelCloseTimer); panelCloseTimer = setTimeout(closePanel, 3000);
+  };
+  catalogToggle.onclick = () => {
+    if (document.body.classList.contains('catalog-open')) { closeCatalog(); return; }
+    closePanel(); closeTools();
+    document.body.classList.add('catalog-open');
+    catalog.setAttribute('aria-hidden', 'false'); catalogToggle.setAttribute('aria-expanded', 'true');
+  };
+  toolsToggle.onclick = () => {
+    if (document.body.classList.contains('tools-open')) { closeTools(); return; }
+    closePanel(); closeCatalog();
+    document.body.classList.add('tools-open');
+    toolsDrawer.setAttribute('aria-hidden', 'false'); toolsToggle.setAttribute('aria-expanded', 'true');
+    clearTimeout(toolsCloseTimer); toolsCloseTimer = setTimeout(closeTools, 3000);
+  };
+  document.getElementById('toolsClose').onclick = closeTools;
+  toolsDrawer.addEventListener('click', (event) => {
+    if (!event.target.closest('.icon')) return;
+    clearTimeout(toolsCloseTimer); toolsCloseTimer = setTimeout(closeTools, 3000);
+  });
+  document.getElementById('bLogout').onclick = async () => {
+    const button = document.getElementById('bLogout');
+    button.disabled = true;
+    app.experiences.close(false);
+    app.stopCamera();
+    if (app.recorder.on) await app.recorder.stop();
+    const response = await fetch('/api/logout', { method: 'POST' });
+    if (response.ok) location.assign('/');
+    else { button.disabled = false; app.toast('Could not end session'); }
+  };
   document.getElementById('bStartCam').onclick = async () => { if (await app.startCamera()) hideStart(); };
-  document.getElementById('bStartNoCam').onclick = () => { hideStart(); app.toast('Keyboard: Space = snap · F = fist · O = open · E = explode · D = demo · H = help'); };
+  document.getElementById('bStartNoCam').onclick = () => { hideStart(); app.toast('Keyboard: Space = summon / dissolve · F = fist · O = open · E = explode · D = demo · H = help'); };
   if (CFG.autostart === 'camera') { hideStart(); app.startCamera(); }
   else if (CFG.autostart === 'nocamera' || CFG.manual) hideStart();
 
-  window.wonderSnap = {
+  window.liveIt = {
     app, CATALOG, CFG, synth: synthHand,
     ready: () => app.store.request(app.ctl.state.index),
     advance: (s, hand, hand2) => app.advance(s, hand, hand2),

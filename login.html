@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f2eee4">
+  <title>Live It | Private Studio</title>
+  <meta name="description" content="Private access to the Live It studio.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/styles.css">
+  <script type="module" src="/auth.js"></script>
+</head>
+<body class="access-page">
+  <main class="access-layout">
+    <section class="access-art" aria-label="Live It studio">
+      <img class="access-image" src="/docs/preview.png" alt="A luminous particle model of a human heart">
+      <div class="access-art-shade"></div>
+      <a class="access-brand" href="/" aria-label="Live It home">
+        <span class="access-mark" aria-hidden="true"><img src="/favicon.svg" alt=""></span>
+        <span>LIVE IT<small>PRIVATE STUDIO</small></span>
+      </a>
+      <div class="access-caption">
+        <p class="access-kicker">FORM STUDY / 001</p>
+        <h2>Where form<br>becomes feeling.</h2>
+        <p class="access-edition">A living collection of light, anatomy and motion.</p>
+      </div>
+      <div class="access-index" aria-hidden="true"><span>01</span><i></i><span>06</span></div>
+    </section>
+
+    <section class="access-panel">
+      <div class="access-panel-inner">
+        <p class="access-kicker">MEMBER ACCESS</p>
+        <h1>Welcome back.</h1>
+        <p class="access-intro">Your studio is ready when you are.</p>
+        <form id="loginForm" class="access-form">
+          <label for="username">Account</label>
+          <input id="username" name="username" type="text" autocomplete="username" required autofocus>
+          <label for="password">Password</label>
+          <input id="password" name="password" type="password" autocomplete="current-password" required>
+          <p id="authMessage" class="auth-message" role="status" aria-live="polite"></p>
+          <button id="signIn" class="access-submit" type="submit">
+            <span>Enter the studio</span><span aria-hidden="true">↗</span>
+          </button>
+        </form>
+        <p class="access-foot">PRIVATE ACCESS <span aria-hidden="true">·</span> LIVE IT</p>
+      </div>
+      <div class="access-panel-rule" aria-hidden="true"></div>
+    </section>
+  </main>
+</body>
+</html>

@@ -1,13 +1,13 @@
 // Real camera pipeline: getUserMedia -> <video> -> WebGL background texture + MediaPipe HandLandmarker (Tasks API).
 // Chromium's fake webcam (--use-fake-device-for-media-stream) provides the frames, so this runs on any machine.
-import { test, expect, chromium } from '@playwright/test';
+import { test, expect, chromium } from './fixtures.js';
 import { shot, status, watchErrors } from './helpers.js';
 
 test('camera + MediaPipe hand tracker run live on the webcam feed', async ({ page }) => {
   const noErrors = watchErrors(page);
   await page.goto('/?autostart=camera&n=200000');
-  await page.waitForFunction(() => window.wonderSnap?.status().camera?.running, null, { timeout: 90_000 });
-  await page.waitForFunction(() => window.wonderSnap.status().camera.frames > 45, null, { timeout: 60_000 });
+  await page.waitForFunction(() => window.liveIt?.status().camera?.running, null, { timeout: 90_000 });
+  await page.waitForFunction(() => window.liveIt.status().camera.frames > 45, null, { timeout: 60_000 });
   let s = await status(page);
   console.log(s.camera, s.gl);
   expect(s.camera.running).toBe(true);
@@ -46,6 +46,6 @@ test('camera denied: friendly message and the app keeps working without it', asy
   await expect(page.locator('#start')).toBeHidden();
   await page.keyboard.press('Space');
   await page.waitForTimeout(800);
-  expect((await page.evaluate(() => window.wonderSnap.status())).state).toBe('sphere');
+  expect((await page.evaluate(() => window.liveIt.status())).state).toBe('sphere');
   await browser.close();
 });

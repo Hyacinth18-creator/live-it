@@ -1,6 +1,6 @@
 // End-to-end: the real app, real shaders, real GPU — driven by synthetic hands (same landmarks MediaPipe emits)
 // on a deterministic clock. Every step is screenshotted into screenshots/.
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures.js';
 import { openApp, shot, status, cloud, play, snap, indexOf, watchErrors } from './helpers.js';
 
 test.describe.configure({ mode: 'serial' });
@@ -8,7 +8,7 @@ test.describe.configure({ mode: 'serial' });
 async function playMarginalFist(page) {
   await page.evaluate(async () => {
     const G = await import('/src/logic/gestures.js');
-    const W = window.wonderSnap, dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+    const W = window.liveIt, dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
     const lm = G.TIPS.reduce((cur, tip, i) => {
       const q = cur.map((p) => [...p]), wrist = q[G.WRIST], p = q[tip];
       const target = dist(q[G.MCPS[i]], wrist) * 1.265, current = Math.max(dist(p, wrist), 1e-9);
@@ -27,7 +27,7 @@ test('01 start screen, then keyboard-only mode (real-time loop)', async ({ page 
   await shot(page, '01a-start-screen');
   await page.click('#bStartNoCam');
   await expect(page.locator('#start')).toBeHidden();
-  await page.waitForFunction(() => window.wonderSnap.status().uploaded === 0);
+  await page.waitForFunction(() => window.liveIt.status().uploaded === 0);
   await page.keyboard.press('Space');                                   // snap
   await page.waitForTimeout(1500);
   expect((await status(page)).state).toBe('sphere');
@@ -44,13 +44,18 @@ test('01 start screen, then keyboard-only mode (real-time loop)', async ({ page 
 test('gesture sensitivity selector applies static presets live without changing snap or pinch', async ({ page }) => {
   const noErrors = watchErrors(page);
   await openApp(page);
+  const revealPanel = async () => {
+    if (await page.locator('body').evaluate((body) => body.classList.contains('panel-open'))) await page.click('#panelToggle');
+    await page.click('#panelToggle');
+  };
+  await revealPanel();
   const select = page.getByLabel('Gesture sensitivity');
   await expect(select).toHaveValue('standard');
   await expect(select.locator('option')).toHaveText(['Standard', 'More forgiving']);
   expect((await status(page)).gestureSensitivity).toBe('standard');
   expect(await page.evaluate(async () => {
     const { STANDARD } = await import('/src/logic/gestures.js');
-    return window.wonderSnap.app.ctl.gestureProfile === STANDARD;
+    return window.liveIt.app.ctl.gestureProfile === STANDARD;
   })).toBe(true);
 
   await playMarginalFist(page);
@@ -59,6 +64,7 @@ test('gesture sensitivity selector applies static presets live without changing 
   await page.keyboard.press('Space');
   expect((await status(page)).state).toBe('sphere');
 
+  await revealPanel();
   await select.selectOption('forgiving');
   await expect(select).toHaveValue('forgiving');
   expect((await status(page)).gestureSensitivity).toBe('forgiving');
@@ -66,6 +72,7 @@ test('gesture sensitivity selector applies static presets live without changing 
   s = await status(page);
   expect([s.rawPose, s.pose, s.state, s.pinch]).toEqual(['fist', 'fist', 'formed', false]);
 
+  await revealPanel();
   await select.selectOption('standard');
   await expect(select).toHaveValue('standard');
   await playMarginalFist(page);
@@ -142,9 +149,9 @@ test('02 the original story: snap -> sphere -> fist -> wonder -> open -> next ->
 test('03 gallery: every wonder, engine and the car, formed', async ({ page }) => {
   const noErrors = watchErrors(page);
   await openApp(page);
-  const names = await page.evaluate(() => window.wonderSnap.CATALOG.map((d) => d.name));
+  const names = await page.evaluate(() => window.liveIt.CATALOG.map((d) => d.name));
   for (let i = 0; i < names.length; i++) {
-    await page.evaluate((k) => window.wonderSnap.select(k), i);
+    await page.evaluate((k) => window.liveIt.select(k), i);
     await play(page, 0.6, null);
     await page.keyboard.press('f');
     await play(page, 3.0, null);
@@ -160,7 +167,7 @@ test('03 gallery: every wonder, engine and the car, formed', async ({ page }) =>
 
 async function explodeStory(page, name, tag) {
   const i = await indexOf(page, name);
-  await page.evaluate((k) => window.wonderSnap.select(k), i);
+  await page.evaluate((k) => window.liveIt.select(k), i);
   await play(page, 0.8, { pose: 'open' });
   expect((await status(page)).state).toBe('sphere');
   await play(page, 3.0, { pose: 'fist' });                                 // fist -> assemble
@@ -215,9 +222,9 @@ test('05 Sports car: open hand shows everything inside, fist puts it back togeth
 test('06 every machine exploded (keyboard E) with part labels', async ({ page }) => {
   const noErrors = watchErrors(page);
   await openApp(page);
-  const machines = await page.evaluate(() => window.wonderSnap.CATALOG.map((d, i) => [i, d.name, d.kind]).filter((d) => d[2] === 'machine'));
+  const machines = await page.evaluate(() => window.liveIt.CATALOG.map((d, i) => [i, d.name, d.kind]).filter((d) => d[2] === 'machine'));
   for (const [i, name] of machines) {
-    await page.evaluate((k) => window.wonderSnap.select(k), i);
+    await page.evaluate((k) => window.liveIt.select(k), i);
     await play(page, 0.6, null);
     await page.keyboard.press('f');
     await play(page, 2.6, null);
@@ -250,7 +257,7 @@ test('07 peace sign jumps to the next model; a short blip does not', async ({ pa
   expect((await status(page)).state).toBe('formed');
   // machines also advance with ✌ (open hand explodes them instead)
   const i4 = await indexOf(page, 'Inline-4 Engine');
-  await page.evaluate((k) => window.wonderSnap.select(k), i4);
+  await page.evaluate((k) => window.liveIt.select(k), i4);
   await play(page, 3, { pose: 'fist' });
   await play(page, 0.4, { pose: 'peace' });
   s = await status(page);
@@ -269,6 +276,7 @@ test('08 keyboard, mouse wheel, slider, catalog chips and help', async ({ page }
   await play(page, 3.2, null);
   expect((await status(page)).name).toBe('Turtle Tower');
 
+  await page.click('#catalogToggle');
   await page.locator('.tab', { hasText: 'Engines' }).click();               // category tab
   await page.getByRole('button', { name: 'Supercharged HEMI V8' }).click();  // catalog chip
   await play(page, 3.2, null);
@@ -288,7 +296,7 @@ test('08 keyboard, mouse wheel, slider, catalog chips and help', async ({ page }
 
   await page.mouse.move(1100, 450); await page.mouse.down(); await page.mouse.move(1300, 450, { steps: 5 }); await page.mouse.up();
   await play(page, 0.3, null);
-  expect(await page.evaluate(() => window.wonderSnap.app.dragYaw)).toBeGreaterThan(1);
+  expect(await page.evaluate(() => window.liveIt.app.dragYaw)).toBeGreaterThan(1);
 
   await page.keyboard.press('h');
   await expect(page.locator('#help')).toBeVisible();
@@ -296,7 +304,7 @@ test('08 keyboard, mouse wheel, slider, catalog chips and help', async ({ page }
   await shot(page, '08b-help-panel');
   await page.keyboard.press('h');
   await page.keyboard.press('l');
-  expect(await page.evaluate(() => window.wonderSnap.app.labelsOn)).toBe(false);
+  expect(await page.evaluate(() => window.liveIt.app.labelsOn)).toBe(false);
   await page.keyboard.press('Space');
   expect((await status(page)).state).toBe('dissolve');
   noErrors();
@@ -305,12 +313,12 @@ test('08 keyboard, mouse wheel, slider, catalog chips and help', async ({ page }
 test('09 demo mode plays the whole story with a synthetic hand (real-time)', async ({ page }) => {
   const noErrors = watchErrors(page);
   await page.goto('/?autostart=nocamera&n=200000');
-  await page.waitForFunction(() => window.wonderSnap?.status().uploaded === 0);
+  await page.waitForFunction(() => window.liveIt?.status().uploaded === 0);
   await page.keyboard.press('d');
-  await page.waitForFunction(() => window.wonderSnap.status().state === 'formed', null, { timeout: 20_000 });
+  await page.waitForFunction(() => window.liveIt.status().state === 'formed', null, { timeout: 20_000 });
   await page.waitForTimeout(1200);
   await shot(page, '09a-demo-eiffel');
-  await page.waitForFunction(() => window.wonderSnap.status().explode > 0.9, null, { timeout: 40_000 });
+  await page.waitForFunction(() => window.liveIt.status().explode > 0.9, null, { timeout: 40_000 });
   await page.waitForTimeout(700);
   const s = await status(page);
   expect(s.kind).toBe('machine');
@@ -322,7 +330,7 @@ test('10 phone-sized layout', async ({ page }) => {
   const noErrors = watchErrors(page);
   await page.setViewportSize({ width: 390, height: 844 });
   await openApp(page, 'n=120000');
-  await page.evaluate(async () => { const W = window.wonderSnap; W.select(W.CATALOG.findIndex((d) => d.name === 'Sports Car')); });
+  await page.evaluate(async () => { const W = window.liveIt; W.select(W.CATALOG.findIndex((d) => d.name === 'Sports Car')); });
   await play(page, 0.6, null);
   await page.keyboard.press('f');
   await play(page, 3, null);
@@ -345,7 +353,7 @@ test('12 anatomy showcase: brain, heart, kidney exploded with every part named +
   await openApp(page);
   for (const name of ['Human Brain', 'Human Heart', 'Kidney']) {
     const i = await indexOf(page, name);
-    await page.evaluate((k) => window.wonderSnap.select(k), i);
+    await page.evaluate((k) => window.liveIt.select(k), i);
     await play(page, 0.6, { pose: 'open' });
     await play(page, 3.0, { pose: 'fist' });
     const tag = name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
@@ -357,7 +365,7 @@ test('12 anatomy showcase: brain, heart, kidney exploded with every part named +
     expect([s.state, s.name]).toEqual(['formed', name]);
     expect(s.explode).toBeGreaterThan(0.97);
     expect(s.handRotating).toBe(true);
-    const labels = await page.evaluate(() => window.wonderSnap.app.model.labels.map((l) => [l.label, l.info]));
+    const labels = await page.evaluate(() => window.liveIt.app.model.labels.map((l) => [l.label, l.info]));
     expect(labels.length).toBeGreaterThanOrEqual(9);
     for (const [label, info] of labels) expect(info.length, label).toBeGreaterThan(8);
     await shot(page, `12-${tag}-b-exploded-named-parts`);
@@ -368,7 +376,7 @@ test('12 anatomy showcase: brain, heart, kidney exploded with every part named +
 test('13 twist your hand to rotate the model, raise / lower it to tilt, G turns it off', async ({ page }) => {
   const noErrors = watchErrors(page);
   await openApp(page);
-  await page.evaluate(async (k) => window.wonderSnap.select(k), await indexOf(page, 'Human Heart'));
+  await page.evaluate(async (k) => window.liveIt.select(k), await indexOf(page, 'Human Heart'));
   await play(page, 0.6, { pose: 'open' });
   await play(page, 3.0, { pose: 'fist' });
   let s = await status(page);

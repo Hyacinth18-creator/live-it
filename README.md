@@ -1,12 +1,12 @@
-# WonderSnap
+# Live It
 
 **Gesture-controlled 3D models made of glowing light particles, running entirely in your browser.**
 
-Snap your fingers in front of your webcam and up to 250,000 GPU particles swirl into existence. Make a fist and they
+Hold three fingers up in front of your webcam and up to 250,000 GPU particles swirl into existence. Make a fist and they
 form the Eiffel Tower, a beating heart or a V8 engine. Open your hand and the model morphs into the next one, or
 explodes into a labelled diagram of every part. No mouse, no controller, no install beyond Node.js.
 
-![WonderSnap showing a beating human heart made of particles](docs/preview.png)
+![Live It showing a beating human heart made of particles](docs/preview.png)
 
 ## Quick start
 
@@ -14,14 +14,33 @@ You need [Node.js](https://nodejs.org/) 18 or newer and a webcam (optional: ever
 keyboard).
 
 ```bash
-git clone https://github.com/AkbarSheikh-debug/wondersnap.git
-cd wondersnap
+git clone https://github.com/AkbarSheikh-debug/wondersnap.git live-it
+cd live-it
 npm install
-npm start
+cp .env.example .env
+# Set your account name and a long unique password in .env
+npm run dev
 ```
 
-Then open **http://localhost:5173** in Chrome or Edge and click **Start with camera**, or **Continue without camera**
-to drive it with the on-screen buttons and keyboard.
+Then open **http://localhost:5173**, sign in with the configured account, and click **Start with camera** or
+**Continue without camera**.
+
+The server uses one configured account and keeps sessions in memory for up to eight hours. Shell environment variables
+override values in `.env`. The app stays locked if either credential is missing. The local `.env` file is ignored by
+Git. This built-in server is intended for localhost; put it behind an HTTPS reverse proxy before exposing it remotely.
+
+## Studio modes
+
+Open **Choose model** and select **Particle draw**, **Gesture keyboard**, **Ask AI**, or **Games**. In draw mode, move
+any extended fingertip to add glowing, animated particles, or draw with a mouse. The on-screen keyboard uses each
+extended fingertip from up to two hands; hold a fingertip steadily over a key for 3 seconds to press it. Mouse and
+touch clicks are also supported; copy text into desktop Word, Excel, or another app. A browser cannot type directly
+into native desktop applications.
+
+The AI mode connects to a local [Ollama](https://ollama.com/) service. Install Ollama beside the Node server, run
+`ollama pull llama3.2`, and set `OLLAMA_MODEL` in `.env` if you choose a different installed model. Configure
+`OLLAMA_URL` there if Ollama is not listening at `http://127.0.0.1:11434`. Games includes Snake, two-player Chess,
+and Memory cards.
 
 > The browser only allows camera access on `localhost` or `https`, which is why the app comes with its own tiny
 > local server. To use a different port: `npm start -- 8080`.
@@ -31,7 +50,7 @@ to drive it with the on-screen buttons and keyboard.
 | Layer | What it does |
 |---|---|
 | **Hand tracking** | [MediaPipe Hand Landmarker](https://ai.google.dev/edge/mediapipe/solutions/vision/hand_landmarker) tracks up to two hands (21 landmarks each) from the webcam, fully on-device |
-| **Gesture recognition** | Custom classifiers turn landmarks into poses (fist, open, point, pinch, peace), a finger-snap detector, hand twist/tilt and two-hand zoom, fed through a debouncer and a state machine |
+| **Gesture recognition** | Hold index, middle and ring fingers up with thumb and pinky folded to summon/dissolve; fist, open, point, pinch, peace, hand twist/tilt and two-hand zoom are also recognized |
 | **Particle engine** | A hand-written WebGL2 renderer. Particle physics runs on the GPU with transform feedback: no Three.js, no game engine, no framework |
 | **Models** | 33 procedural models built from real measurements and sampled into point clouds, with named parts that can explode, glow and be pulled out |
 | **Server** | A zero-dependency Node.js static server (`server.mjs`) |
@@ -42,7 +61,7 @@ Nothing is sent anywhere: the video never leaves your machine.
 
 | Gesture | What it does |
 |---|---|
-| 🫰 **Snap** | Summon the particles, or dissolve the current model |
+| **Three fingers** | Hold index, middle and ring fingers up with thumb and pinky folded to summon particles or dissolve the current model. Space is also available. |
 | ✊ **Fist** | Form the wonder, organ or machine |
 | ✋ **Open hand** | Wonders morph to the next one. Organs, engines and vehicles **explode**: how far you open your hand sets how far the parts fly apart, and closing it puts them back together |
 | 🔄 **Twist / raise your hand** | Turn and tilt the formed model |
@@ -55,7 +74,7 @@ Nothing is sent anywhere: the video never leaves your machine.
 
 | Key | Action |
 |---|---|
-| `Space` | Snap |
+| `Space` | Summon / dissolve particles |
 | `F` / `O` / `V` | Fist / open hand / peace sign |
 | `←` `→` | Previous / next model |
 | `E`, `↑` `↓`, mouse wheel | Explode amount |
@@ -99,8 +118,8 @@ Click a part to select it, drag to rotate.
 ## Gesture sensitivity
 
 The **Gesture sensitivity** control in the status panel defaults to **Standard**, which preserves the original gesture
-thresholds. **More forgiving** slightly relaxes static hand-pose recognition and openness. Snap and pinch detection are
-unchanged, and the selection lasts only for the current page session.
+thresholds. **More forgiving** slightly relaxes static hand-pose recognition and openness. The three-finger trigger and
+pinch detection are unchanged, and the selection lasts only for the current page session.
 
 ## URL options
 
@@ -114,7 +133,7 @@ unchanged, and the selection lasts only for the current page session.
 
 ## Tests
 
-39 end-to-end and unit tests with [Playwright](https://playwright.dev/), driving the real app with synthetic hands on
+41 end-to-end and unit tests with [Playwright](https://playwright.dev/), driving the real app with synthetic hands on
 a deterministic clock.
 
 ```bash
@@ -124,11 +143,12 @@ npm test
 
 | Spec | Covers |
 |---|---|
+| `auth.spec.js` | Protected app access, credential validation, and session logout |
 | `app.spec.js` | The full gesture story, every model, explode/contract, keyboard, wheel, tabs, demo, phone layout, hand twist and tilt |
 | `features.spec.js` | Heartbeat and breathing, two-hand zoom, point-to-pick, pinch-to-pull, quiz, voice commands, cut-away, video recording |
 | `camera.spec.js` | Real `getUserMedia` to MediaPipe on Chromium's fake webcam, plus the camera-denied fallback |
 | `gpu.spec.js` | The GPU physics shader matches its CPU twin to ~1e-7 in every mode |
-| `logic.spec.js` | Pose classifiers, snap detector, debouncer, state machine, controller, voice-command parser |
+| `logic.spec.js` | Pose classifiers, three-finger trigger, debouncer, state machine, controller, voice-command parser |
 | `models.spec.js` | Every model is deterministic, finite and fast, with real measurements and correctly exploding parts |
 
 ## Project structure
@@ -153,8 +173,9 @@ tests/                     Playwright specs
   camera access when the browser asks.
 - **Hand tracking never loads:** run `npm install` first; the tracking runtime is served from `node_modules`.
 - **Low frame rate:** try `http://localhost:5173/?n=100000&dpr=1`.
-- **Port already in use:** `npm start -- 8080` and open `http://localhost:8080`.
+- **Port already in use:** `npm run dev -- 8080` and open `http://localhost:8080`.
+- **Sign-in is not configured:** set `LIVEIT_USERNAME` and `LIVEIT_PASSWORD` before starting the server.
 
 ## License
 
-[MIT](LICENSE) © 2026 Akbar Sheikh
+[MIT](LICENSE) © 2026 Hyacinth Onchangu

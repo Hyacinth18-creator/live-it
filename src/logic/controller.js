@@ -1,13 +1,14 @@
 // Glue between hand landmarks and the state machine. Pure logic -> unit-testable with synthetic hands.
-import { classify, openness, pinched, PoseDebouncer, SnapDetector, GESTURE_PROFILES, STANDARD, NONE } from './gestures.js';
+import { classify, openness, pinched, PoseDebouncer, ThreeFingerTrigger, GESTURE_PROFILES, STANDARD, NONE } from './gestures.js';
 import { WonderState } from './state.js';
 
 export class Controller {
   constructor(n, isMachine = () => false, holdFrames = 4) {
     this.state = new WonderState(n, isMachine);
     this.debounce = new PoseDebouncer(holdFrames);
-    this.snap = new SnapDetector();
-    this.gestureSensitivity = 'standard';
+    this.threeFinger = new ThreeFingerTrigger();
+      this.gestureSensitivity = 'standard';
+      this.suppressStateGestures = false;
     this.gestureProfile = STANDARD;
     this.pose = NONE;
     this.rawPose = NONE;
@@ -48,11 +49,11 @@ export class Controller {
     return Math.atan2((lm[9][0] - lm[0][0]) * aspect, -(lm[9][1] - lm[0][1]));
   }
 
-  /** Call once per camera frame (lm = 21 [x, y] pairs or null). Returns true if a snap fired. */
+  /** Call once per camera frame (lm = 21 [x, y] pairs or null). Returns true for a held three-finger trigger. */
   onHand(lm, t) {
     const raw = classify(lm, this.gestureProfile);
     const [stable, changed] = this.debounce.update(raw);
-    const snapped = this.snap.update(lm, t);
+    const triggered = this.threeFinger.update(lm, t);
     this.rawPose = raw;
     this._pinchN = pinched(lm) ? this._pinchN + 1 : 0;
     const was = this.pinch;
@@ -69,8 +70,8 @@ export class Controller {
       this.handY = (lm[0][1] + lm[9][1]) / 2;
       this.lastHandT = t;
     }
-    this.state.update(stable, changed, snapped, t);
-    return snapped;
+    this.state.update(this.suppressStateGestures ? NONE : stable, !this.suppressStateGestures && changed, !this.suppressStateGestures && triggered, t);
+    return triggered;
   }
 
   handVisible(t) { return t - this.lastHandT < 0.35; }

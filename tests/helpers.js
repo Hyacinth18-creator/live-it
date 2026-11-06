@@ -13,20 +13,20 @@ export function watchErrors(page) {
   return () => expect(errors, errors.join('\n')).toEqual([]);
 }
 
-/** Open the app in manual-clock mode (frames only advance through wonderSnap.advance). */
+/** Open the app in manual-clock mode (frames only advance through liveIt.advance). */
 export async function openApp(page, query = '') {
   await page.goto(`/?manual=1&dpr=1&${query}`);
-  await page.waitForFunction(() => window.wonderSnap);
-  await page.evaluate(() => window.wonderSnap.ready());
-  await page.evaluate(() => window.wonderSnap.advance(1 / 60, null));
+  await page.waitForFunction(() => window.liveIt);
+  await page.evaluate(() => window.liveIt.ready());
+  await page.evaluate(() => window.liveIt.advance(1 / 60, null));
 }
 
 export async function shot(page, name) {
   await page.screenshot({ path: `${SHOTS}/${name}.png` });
 }
 
-export const status = (page) => page.evaluate(() => window.wonderSnap.status());
-export const cloud = (page) => page.evaluate(() => window.wonderSnap.cloud());
+export const status = (page) => page.evaluate(() => window.liveIt.status());
+export const cloud = (page) => page.evaluate(() => window.liveIt.cloud());
 
 const HAND = { cx: 0.33, cy: 0.58, s: 0.085 };
 
@@ -38,7 +38,7 @@ const HAND = { cx: 0.33, cy: 0.58, s: 0.085 };
  */
 export async function play(page, seconds, hand) {
   await page.evaluate(async ([s, h, base]) => {
-    const W = window.wonderSnap;
+    const W = window.liveIt;
     let src = null;
     if (h && h.ramp) {
       const t0 = W.app.t;
@@ -48,10 +48,10 @@ export async function play(page, seconds, hand) {
   }, [seconds, hand ?? null, HAND]);
 }
 
-/** A real finger snap as the camera would see it: thumb+middle pressed, then the middle slams into the palm. */
+/** Hold the three-finger trigger, then release the hand. */
 export async function snap(page) {
-  await play(page, 0.14, { pose: 'snap_pressed' });
-  await play(page, 0.2, { pose: 'snap_released' });
+  await play(page, 0.2, { pose: 'three' });
+  await play(page, 0.2, null);
 }
 
-export const indexOf = (page, name) => page.evaluate((n) => window.wonderSnap.CATALOG.findIndex((d) => d.name === n), name);
+export const indexOf = (page, name) => page.evaluate((n) => window.liveIt.CATALOG.findIndex((d) => d.name === n), name);

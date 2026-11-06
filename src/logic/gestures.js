@@ -1,8 +1,9 @@
 // Hand pose (OPEN / FIST / PEACE / OTHER), continuous openness, and snap detection from MediaPipe's
-// 21 normalized landmarks. Port of wondersnap/gestures.py (same thresholds) + openness and peace sign.
-export const WRIST = 0, THUMB_TIP = 4, MIDDLE_MCP = 9, MIDDLE_TIP = 12;
+// 21 normalized landmarks. Port of live-it/gestures.py (same thresholds) + openness and peace sign.
+export const WRIST = 0, THUMB_TIP = 4, MIDDLE_MCP = 9;
 export const TIPS = [8, 12, 16, 20], PIPS = [6, 10, 14, 18], MCPS = [5, 9, 13, 17];
-export const OPEN = 'open', FIST = 'fist', PEACE = 'peace', POINT = 'point', OTHER = 'other', NONE = 'none';
+export const FINGER_TIPS = [THUMB_TIP, ...TIPS];
+export const OPEN = 'open', FIST = 'fist', PEACE = 'peace', POINT = 'point', THREE = 'three', OTHER = 'other', NONE = 'none';
 
 export const STANDARD = Object.freeze({
   extendedFingerRatio: 1.15,
@@ -17,7 +18,7 @@ export const STANDARD = Object.freeze({
 // A single 0.03 normalized-ratio tolerance admits mildly bent synthetic poses while keeping a broad
 // OTHER band between fist and open. Marginal tests sit halfway between the old and new boundaries,
 // and openness endpoints move inward by the same bounded amount instead of adding separate tuning.
-// Snap and pinch deliberately continue to use STANDARD internally.
+// The three-finger trigger and pinch deliberately continue to use STANDARD internally.
 export const FORGIVING = Object.freeze({
   extendedFingerRatio: 1.12,
   curledFingerRatio: 1.28,
@@ -33,6 +34,25 @@ export const GESTURE_PROFILES = Object.freeze({ standard: STANDARD, forgiving: F
 const d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
 export const handScale = (lm) => Math.max(d(lm[WRIST], lm[MIDDLE_MCP]), 1e-6);
 
+/** Landmark indices for fingers that are extended in this hand. */
+export function extendedFingerTips(lm, profile = STANDARD) {
+  if (!lm) return [];
+  const extended = TIPS.map((tip, i) =>
+    d(lm[tip], lm[WRIST]) > d(lm[PIPS[i]], lm[WRIST]) * profile.extendedFingerRatio);
+  if (d(lm[THUMB_TIP], lm[17]) > handScale(lm) * profile.openThumbRatio) extended.unshift(true);
+  else extended.unshift(false);
+  return FINGER_TIPS.filter((_, i) => extended[i]);
+}
+
+export function isThreeFingerPose(lm, profile = STANDARD) {
+  if (!lm) return false;
+  const wrist = lm[WRIST];
+  const extended = TIPS.slice(0, 3).every((tip, i) => d(lm[tip], wrist) > d(lm[PIPS[i]], wrist) * profile.extendedFingerRatio);
+  const pinkyCurled = d(lm[TIPS[3]], wrist) < d(lm[MCPS[3]], wrist) * profile.curledFingerRatio;
+  const thumbFolded = d(lm[THUMB_TIP], lm[17]) / handScale(lm) < profile.openThumbRatio;
+  return extended && pinkyCurled && thumbFolded;
+}
+
 /** Instant pose. Finger extended = tip clearly farther from wrist than its PIP joint (rotation-invariant). */
 export function classify(lm, profile = STANDARD) {
   if (!lm) return NONE;
@@ -41,6 +61,7 @@ export function classify(lm, profile = STANDARD) {
   const thumbOut = d(lm[THUMB_TIP], lm[17]) > handScale(lm) * profile.openThumbRatio;  // thumb tip far from pinky base
   if (ext.every(Boolean) && thumbOut) return OPEN;
   if (curled.every(Boolean)) return FIST;
+  if (isThreeFingerPose(lm, profile)) return THREE;
   if (ext[0] && ext[1] && curled[2] && curled[3]) return PEACE;           // ✌ index + middle up
   if (ext[0] && curled[1] && curled[2] && curled[3]) return POINT;        // ☝ index finger only
   return OTHER;
@@ -52,8 +73,6 @@ export function pinched(lm) {
   // Pinch safety is invariant across static-gesture sensitivity presets.
   return d(lm[THUMB_TIP], lm[8]) / handScale(lm) < 0.32 && classify(lm) !== FIST;
 }
-
-export const middleExtended = (lm) => d(lm[MIDDLE_TIP], lm[WRIST]) > d(lm[10], lm[WRIST]) * 1.15;
 
 const clamp01 = (x) => Math.min(1, Math.max(0, x));
 /** How open the hand is, 0 = tight fist .. 1 = fully open (fingers 80 %, thumb 20 %). */
@@ -84,35 +103,26 @@ export class PoseDebouncer {
   }
 }
 
-/** Thumb+middle tips pressed, then released fast. A tracking dropout (motion blur) between press and
- *  release grants extra time. Rejects: slow opening, held pinch, a fist opening. */
-export class SnapDetector {
-  constructor({ close = 0.35, open = 0.75, maxReleaseS = 0.1, cooldownS = 0.8, dropoutS = 0.15 } = {}) {
-    Object.assign(this, { close, open, maxReleaseS, cooldownS, dropoutS });
-    this.pressedAt = null; this.hadDropout = false; this.lastFire = -1e9;
+/** Hold three extended fingers; require a clear release before the next trigger. */
+export class ThreeFingerTrigger {
+  constructor({ holdFrames = 5, releaseFrames = 4, cooldownS = 0.25 } = {}) {
+    Object.assign(this, { holdFrames, releaseFrames, cooldownS });
+    this.frames = 0; this.releasedFrames = 0; this.armed = true; this.lastFire = -1e9;
   }
   update(lm, t) {
-    if (!lm) {
-      if (this.pressedAt !== null) {
-        if (t - this.pressedAt > this.maxReleaseS + this.dropoutS) this.pressedAt = null;
-        else this.hadDropout = true;
+    if (isThreeFingerPose(lm)) {
+      this.releasedFrames = 0;
+      if (!this.armed) return false;
+      this.frames += 1;
+      if (this.frames >= this.holdFrames && t - this.lastFire >= this.cooldownS) {
+        this.armed = false; this.lastFire = t;
+        return true;
       }
-      return false;
-    }
-    const r = d(lm[THUMB_TIP], lm[MIDDLE_TIP]) / handScale(lm);
-    if (r < this.close) {
-      // a closed fist also brings thumb and middle tip together: that is not a snap "press"
-      // This intentionally uses classify()'s STANDARD default regardless of controller sensitivity.
-      if (classify(lm) === FIST) this.pressedAt = null;
-      else { this.pressedAt = t; this.hadDropout = false; }
-      return false;
-    }
-    if (this.pressedAt === null) return false;
-    if (t - this.pressedAt > this.maxReleaseS + (this.hadDropout ? this.dropoutS : 0)) { this.pressedAt = null; return false; }
-    if (r > this.open) {
-      this.pressedAt = null;
-      if (middleExtended(lm)) return false;            // real snap: the middle finger slams DOWN into the palm
-      if (t - this.lastFire >= this.cooldownS) { this.lastFire = t; return true; }
+    } else {
+      this.frames = 0;
+      if (!this.armed && ++this.releasedFrames >= this.releaseFrames) {
+        this.armed = true; this.releasedFrames = 0;
+      }
     }
     return false;
   }
