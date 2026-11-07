@@ -22,6 +22,7 @@
   "license": "MIT",
   "dependencies": {
     "@mediapipe/tasks-vision": "^1.0.1",
+    "@vercel/functions": "^3.11.0",
     "chess.js": "^1.4.0"
   },
   "devDependencies": {

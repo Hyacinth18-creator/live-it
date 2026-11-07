@@ -29,6 +29,26 @@ The server uses one configured account and keeps sessions in memory for up to ei
 override values in `.env`. The app stays locked if either credential is missing. The local `.env` file is ignored by
 Git. This built-in server is intended for localhost; put it behind an HTTPS reverse proxy before exposing it remotely.
 
+## Deploy to Vercel
+
+The repository includes Vercel Functions for sign-in, sign-out, and AI requests, plus routing middleware that protects
+the studio and its assets. Import the repository into Vercel with the project root set to the repository root; the
+included `vercel.json` selects the static frontend and configures the Node.js functions.
+
+Set these environment variables in the Vercel project settings for Production (and Preview if needed):
+
+| Variable | Required | Value |
+|---|---|---|
+| `LIVEIT_USERNAME` | Yes | The account name for studio access |
+| `LIVEIT_PASSWORD` | Yes | A long, unique account password |
+| `LIVEIT_SESSION_SECRET` | Yes | A random secret of at least 32 characters (for example, generate one with `openssl rand -base64 32`) |
+| `OLLAMA_URL` | For Ask AI | Base URL of an Ollama service reachable from Vercel; a local `localhost` URL will not work |
+| `OLLAMA_MODEL` | No | Installed Ollama model name; defaults to `llama3.2` |
+
+After setting the variables, redeploy from `main`. Sessions use signed, eight-hour cookies on Vercel; signing out clears
+the current browser's cookie, but cannot revoke a copied cookie before it expires. AI requests have a 55-second
+upstream timeout and need a publicly reachable, secured Ollama host.
+
 ## Studio modes
 
 Open **Choose model** and select **Particle draw**, **Gesture keyboard**, **Ask AI**, or **Games**. In draw mode, move
@@ -53,7 +73,7 @@ and Memory cards.
 | **Gesture recognition** | Hold index, middle and ring fingers up with thumb and pinky folded to summon/dissolve; fist, open, point, pinch, peace, hand twist/tilt and two-hand zoom are also recognized |
 | **Particle engine** | A hand-written WebGL2 renderer. Particle physics runs on the GPU with transform feedback: no Three.js, no game engine, no framework |
 | **Models** | 33 procedural models built from real measurements and sampled into point clouds, with named parts that can explode, glow and be pulled out |
-| **Server** | A zero-dependency Node.js static server (`server.mjs`) |
+| **Server** | A zero-dependency local Node.js server (`server.mjs`) or Vercel Functions |
 
 Nothing is sent anywhere: the video never leaves your machine.
 
