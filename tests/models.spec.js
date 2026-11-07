@@ -3,7 +3,7 @@
 import { test, expect } from './fixtures.js';
 import { watchErrors } from './helpers.js';
 
-test.beforeEach(async ({ page }) => { await page.goto('/?manual=1&n=5000'); await page.waitForFunction(() => window.liveIt); });
+test.beforeEach(async ({ page }) => { await page.goto('/studio?manual=1&n=5000'); await page.waitForFunction(() => window.liveIt); });
 
 test('every model: exactly N finite points inside the globe, deterministic, fast', async ({ page }) => {
   const noErrors = watchErrors(page);

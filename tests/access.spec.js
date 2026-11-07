@@ -3,9 +3,17 @@ import { test, expect } from '@playwright/test';
 test('the studio and its app assets are public without signing in', async ({ request, baseURL }) => {
   const home = await request.get(baseURL);
   expect(home.status()).toBe(200);
-  expect(await home.text()).toContain('<title>Live It</title>');
+  expect(home.url()).toContain('/login.html');
+  expect(await home.text()).toContain('<title>Live It | Private Studio</title>');
+  expect(await home.text()).toContain('PUBLIC ACCESS');
+  const studio = await request.get(new URL('/studio', baseURL).toString());
+  expect(studio.status()).toBe(200);
+  expect(studio.url()).toContain('/index.html');
+  expect(await studio.text()).toContain('<title>Live It | Studio</title>');
   expect((await request.get(new URL('/src/app.js', baseURL).toString())).status()).toBe(200);
-  expect((await request.get(new URL('/node_modules/chess.js/dist/esm/chess.js', baseURL).toString())).status()).toBe(200);
+  expect((await request.get(new URL('/vendor/chess.js', baseURL).toString())).status()).toBe(200);
+  expect((await request.get(new URL('/vendor/mediapipe/vision_bundle.mjs', baseURL).toString())).status()).toBe(200);
+  expect((await request.get(new URL('/vendor/mediapipe/wasm/vision_wasm_internal.wasm', baseURL).toString())).status()).toBe(200);
   const ai = await request.post(new URL('/api/ai', baseURL).toString(), {
     data: { messages: [{ role: 'user', content: 'hello' }] },
   });
@@ -26,7 +34,7 @@ test('the studio and its app assets are public without signing in', async ({ req
 
 test('the studio and model navigation adapt from desktop to mobile', async ({ page, baseURL }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto(new URL('/?n=5000', baseURL).toString());
+  await page.goto(new URL('/studio?n=5000', baseURL).toString());
   await page.waitForFunction(() => window.liveIt);
   await page.getByRole('button', { name: 'Continue without camera' }).click();
   await page.click('#panelToggle');

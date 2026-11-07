@@ -21,7 +21,7 @@ async function playMarginalFist(page) {
 
 test('01 start screen, then keyboard-only mode (real-time loop)', async ({ page }) => {
   const noErrors = watchErrors(page);
-  await page.goto('/?n=200000');
+  await page.goto('/studio?n=200000');
   await expect(page.locator('#start')).toBeVisible();
   await page.waitForTimeout(500);
   await shot(page, '01a-start-screen');
@@ -312,7 +312,7 @@ test('08 keyboard, mouse wheel, slider, catalog chips and help', async ({ page }
 
 test('09 demo mode plays the whole story with a synthetic hand (real-time)', async ({ page }) => {
   const noErrors = watchErrors(page);
-  await page.goto('/?autostart=nocamera&n=200000');
+  await page.goto('/studio?autostart=nocamera&n=200000');
   await page.waitForFunction(() => window.liveIt?.status().uploaded === 0);
   await page.keyboard.press('d');
   await page.waitForFunction(() => window.liveIt.status().state === 'formed', null, { timeout: 20_000 });

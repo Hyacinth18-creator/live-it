@@ -22,7 +22,7 @@ export default defineConfig({
     trace: 'retain-on-failure',
   },
   webServer: {
-    command: 'node server.mjs 5187',
+    command: 'npm run build && node server.mjs 5187',
     url: 'http://localhost:5187',
     reuseExistingServer: false,
     timeout: 30_000,

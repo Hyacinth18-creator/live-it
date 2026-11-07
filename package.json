@@ -7,8 +7,9 @@
     "node": ">=18"
   },
   "scripts": {
-    "dev": "node server.mjs",
-    "start": "node server.mjs",
+    "build": "node scripts/build.mjs",
+    "dev": "npm run build && node server.mjs",
+    "start": "npm run build && node server.mjs",
     "test": "playwright test",
     "test:report": "playwright show-report"
   },

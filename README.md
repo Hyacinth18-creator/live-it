@@ -20,17 +20,17 @@ npm install
 npm run dev
 ```
 
-Then open **http://localhost:5173** and click **Start with camera** or **Continue without camera**.
+Then open **http://localhost:5173**, choose **Open the studio**, and click **Start with camera** or **Continue without camera**.
 
-The studio is public: it has no account or password requirement. Anyone with the site URL can use it. The `/login` and
-`/logout` pages remain available as informational pages, but sign-in and sign-out are intentionally disabled.
+The home page is the original studio welcome screen, with its account fields retained as a visual design only. The
+studio remains public: no username, password, or account is required. Use `/studio` to open it directly.
 
 ## Deploy to Vercel
 
 The repository includes a Vercel Function for AI requests. Import it with the project root set to the repository root;
-the included `vercel.json` selects the static frontend and configures the Node.js function. The studio is public:
-anyone with the URL can use it. The `/login` and `/logout` pages are informational only; no username, password, or
-session secret is required.
+the included `vercel.json` builds the static site to `dist` and configures the Node.js function. The build includes the
+MediaPipe module and WASM files required for camera hand tracking. The root URL shows the welcome screen and `/studio`
+opens the public studio; no account or session secret is required.
 
 Only configure these optional variables in Vercel if you want to enable Ask AI:
 
@@ -54,8 +54,8 @@ The AI mode connects to a local [Ollama](https://ollama.com/) service. Install O
 `OLLAMA_URL` there if Ollama is not listening at `http://127.0.0.1:11434`. Games includes Snake, two-player Chess,
 and Memory cards.
 
-> The browser only allows camera access on `localhost` or `https`, which is why the app comes with its own tiny
-> local server. To use a different port: `npm start -- 8080`.
+> Camera access requires a secure browser context (`localhost` or HTTPS) and permission from the browser. Vercel uses
+> HTTPS. To use a different local port: `npm start -- 8080`.
 
 ## How it works
 

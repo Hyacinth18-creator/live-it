@@ -15,7 +15,7 @@ export function watchErrors(page) {
 
 /** Open the app in manual-clock mode (frames only advance through liveIt.advance). */
 export async function openApp(page, query = '') {
-  await page.goto(`/?manual=1&dpr=1&${query}`);
+  await page.goto(`/studio?manual=1&dpr=1&${query}`);
   await page.waitForFunction(() => window.liveIt);
   await page.evaluate(() => window.liveIt.ready());
   await page.evaluate(() => window.liveIt.advance(1 / 60, null));

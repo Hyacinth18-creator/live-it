@@ -6,6 +6,8 @@ import { extname, join, normalize, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = resolve(fileURLToPath(new URL('.', import.meta.url)));
+const DIST = join(ROOT, 'dist');
+const STATIC_ROOT = (await stat(DIST).catch(() => null))?.isDirectory() ? DIST : ROOT;
 
 async function loadLocalEnvironment() {
   const contents = await readFile(join(ROOT, '.env'), 'utf8').catch((error) => {
@@ -56,6 +58,14 @@ createServer(async (req, res) => {
     const url = new URL(req.url, 'http://localhost');
     const pathname = decodeURIComponent(url.pathname);
     if (pathname.startsWith('/.env')) { res.writeHead(404).end('not found'); return; }
+    if (pathname === '/') {
+      res.writeHead(303, { Location: '/login.html' }).end();
+      return;
+    }
+    if (pathname === '/studio') {
+      res.writeHead(303, { Location: `/index.html${url.search}` }).end();
+      return;
+    }
     if (pathname === '/login' || pathname === '/logout') {
       res.writeHead(303, { Location: `${pathname}.html` }).end();
       return;
@@ -85,8 +95,8 @@ createServer(async (req, res) => {
       return;
     }
 
-    let path = normalize(join(ROOT, pathname));
-    if (!path.startsWith(ROOT)) { res.writeHead(403).end('forbidden'); return; }
+    let path = normalize(join(STATIC_ROOT, pathname));
+    if (!path.startsWith(STATIC_ROOT)) { res.writeHead(403).end('forbidden'); return; }
     if ((await stat(path).catch(() => null))?.isDirectory()) path = join(path, 'index.html');
     const body = await readFile(path);
     res.writeHead(200, { 'Content-Type': TYPES[extname(path).toLowerCase()] || 'application/octet-stream', 'Cache-Control': 'no-cache' });

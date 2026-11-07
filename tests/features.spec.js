@@ -227,7 +227,7 @@ test('19 cut-away: the hand slides a cutting plane through the model', async ({ 
 
 test('20 record a video of the session (real-time)', async ({ page }) => {
   const noErrors = watchErrors(page);
-  await page.goto('/?autostart=nocamera&n=150000&model=12');
+  await page.goto('/studio?autostart=nocamera&n=150000&model=12');
   await page.waitForFunction(() => window.liveIt?.status().uploaded === 12);
   await page.keyboard.press('Space');
   await page.keyboard.press('k');
@@ -277,7 +277,7 @@ test('22 app starts on anatomy and preserves explicit model selection', async ({
   await openApp(page);
   expect(await status(page)).toMatchObject({ name: 'Human Brain', category: 'Anatomy', activeCat: 'Anatomy' });
 
-  await page.goto('/?manual=1&dpr=1&model=0');
+  await page.goto('/studio?manual=1&dpr=1&model=0');
   await page.waitForFunction(() => window.liveIt);
   await page.evaluate(() => window.liveIt.ready());
   await page.evaluate(() => window.liveIt.advance(1 / 60, null));

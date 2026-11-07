@@ -1,7 +1,7 @@
 // Pure logic (ported from tests/test_all.py + new explode/peace behaviour), executed in the browser.
 import { test, expect } from './fixtures.js';
 
-test.beforeEach(async ({ page }) => { await page.goto('/?manual=1&n=5000'); await page.waitForFunction(() => window.liveIt); });
+test.beforeEach(async ({ page }) => { await page.goto('/studio?manual=1&n=5000'); await page.waitForFunction(() => window.liveIt); });
 
 test('gestures: poses at 4 rotations, peace sign, openness, debouncer', async ({ page }) => {
   const r = await page.evaluate(async () => {

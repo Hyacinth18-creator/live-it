@@ -1,4 +1,4 @@
-import { Chess } from '../node_modules/chess.js/dist/esm/chess.js';
+import { Chess } from '../vendor/chess.js';
 import { extendedFingerTips } from './logic/gestures.js';
 
 const KEY_ROWS = [
