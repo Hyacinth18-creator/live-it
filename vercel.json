@@ -1,9 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "proxy": {
-    "entrypoint": "proxy.js"
-  },
+  "redirects": [
+    { "source": "/login", "destination": "/", "permanent": false },
+    { "source": "/login.html", "destination": "/", "permanent": false }
+  ],
   "functions": {
     "api/*.js": {
       "maxDuration": 60

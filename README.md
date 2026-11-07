@@ -17,37 +17,27 @@ keyboard).
 git clone https://github.com/AkbarSheikh-debug/wondersnap.git live-it
 cd live-it
 npm install
-cp .env.example .env
-# Set your account name and a long unique password in .env
 npm run dev
 ```
 
-Then open **http://localhost:5173**, sign in with the configured account, and click **Start with camera** or
-**Continue without camera**.
+Then open **http://localhost:5173** and click **Start with camera** or **Continue without camera**.
 
-The server uses one configured account and keeps sessions in memory for up to eight hours. Shell environment variables
-override values in `.env`. The app stays locked if either credential is missing. The local `.env` file is ignored by
-Git. This built-in server is intended for localhost; put it behind an HTTPS reverse proxy before exposing it remotely.
+The studio is public: it has no account or password requirement. Anyone with the site URL can use it.
 
 ## Deploy to Vercel
 
-The repository includes Vercel Functions for sign-in, sign-out, and AI requests, plus routing middleware that protects
-the studio and its assets. Import the repository into Vercel with the project root set to the repository root; the
-included `vercel.json` selects the static frontend and configures the Node.js functions.
+The repository includes a Vercel Function for AI requests. Import it with the project root set to the repository root;
+the included `vercel.json` selects the static frontend and configures the Node.js function. The studio is public:
+anyone with the URL can use it. No username, password, or session secret is required.
 
-Set these environment variables in the Vercel project settings for Production (and Preview if needed):
+Only configure these optional variables in Vercel if you want to enable Ask AI:
 
 | Variable | Required | Value |
 |---|---|---|
-| `LIVEIT_USERNAME` | Yes | The account name for studio access |
-| `LIVEIT_PASSWORD` | Yes | A long, unique account password |
-| `LIVEIT_SESSION_SECRET` | Yes | A random secret of at least 32 characters (for example, generate one with `openssl rand -base64 32`) |
 | `OLLAMA_URL` | For Ask AI | Base URL of an Ollama service reachable from Vercel; a local `localhost` URL will not work |
 | `OLLAMA_MODEL` | No | Installed Ollama model name; defaults to `llama3.2` |
 
-After setting the variables, redeploy from `main`. Sessions use signed, eight-hour cookies on Vercel; signing out clears
-the current browser's cookie, but cannot revoke a copied cookie before it expires. AI requests have a 55-second
-upstream timeout and need a publicly reachable, secured Ollama host.
+AI requests have a 55-second upstream timeout and need a publicly reachable, secured Ollama host.
 
 ## Studio modes
 
@@ -163,7 +153,7 @@ npm test
 
 | Spec | Covers |
 |---|---|
-| `auth.spec.js` | Protected app access, credential validation, and session logout |
+| `access.spec.js` | Public app access and responsive navigation |
 | `app.spec.js` | The full gesture story, every model, explode/contract, keyboard, wheel, tabs, demo, phone layout, hand twist and tilt |
 | `features.spec.js` | Heartbeat and breathing, two-hand zoom, point-to-pick, pinch-to-pull, quiz, voice commands, cut-away, video recording |
 | `camera.spec.js` | Real `getUserMedia` to MediaPipe on Chromium's fake webcam, plus the camera-denied fallback |
@@ -194,7 +184,6 @@ tests/                     Playwright specs
 - **Hand tracking never loads:** run `npm install` first; the tracking runtime is served from `node_modules`.
 - **Low frame rate:** try `http://localhost:5173/?n=100000&dpr=1`.
 - **Port already in use:** `npm run dev -- 8080` and open `http://localhost:8080`.
-- **Sign-in is not configured:** set `LIVEIT_USERNAME` and `LIVEIT_PASSWORD` before starting the server.
 
 ## License
 

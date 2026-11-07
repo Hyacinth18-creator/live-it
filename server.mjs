@@ -1,7 +1,6 @@
 // Zero-dependency static server for Live It. The camera API needs a secure context: http://localhost is one.
 //   node server.mjs [port]      ->  http://localhost:5173
 import { createServer } from 'node:http';
-import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { readFile, stat } from 'node:fs/promises';
 import { extname, join, normalize, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -28,39 +27,13 @@ async function loadLocalEnvironment() {
 
 await loadLocalEnvironment();
 const PORT = Number(process.argv[2] || process.env.PORT || 5173);
-const USERNAME = process.env.LIVEIT_USERNAME || '';
-const PASSWORD = process.env.LIVEIT_PASSWORD || '';
 const OLLAMA_URL = (process.env.OLLAMA_URL || 'http://127.0.0.1:11434').replace(/\/$/, '');
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'llama3.2';
-const SESSION_COOKIE = 'liveit_session';
-const SESSION_TTL = 8 * 60 * 60 * 1000;
-const sessions = new Map();
-const publicFiles = new Set(['/login.html', '/auth.js', '/styles.css', '/favicon.svg', '/docs/preview.png']);
 const TYPES = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.wasm': 'application/wasm', '.task': 'application/octet-stream',
   '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.map': 'application/json',
 };
-
-function safeEqual(actual, expected) {
-  const actualHash = createHash('sha256').update(actual).digest();
-  const expectedHash = createHash('sha256').update(expected).digest();
-  return timingSafeEqual(actualHash, expectedHash);
-}
-
-function sessionFrom(req) {
-  const cookie = req.headers.cookie?.split(';').map((part) => part.trim()).find((part) => part.startsWith(`${SESSION_COOKIE}=`));
-  const token = cookie?.slice(SESSION_COOKIE.length + 1);
-  const session = token && sessions.get(token);
-  if (!session) return false;
-  if (session.expires <= Date.now()) { sessions.delete(token); return false; }
-  return true;
-}
-
-function setSessionCookie(req, res, token, maxAge) {
-  const secure = req.socket.encrypted || req.headers['x-forwarded-proto'] === 'https' ? '; Secure' : '';
-  res.setHeader('Set-Cookie', `${SESSION_COOKIE}=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${maxAge}${secure}`);
-}
 
 function json(res, status, payload) {
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
@@ -94,39 +67,8 @@ createServer(async (req, res) => {
     const url = new URL(req.url, 'http://localhost');
     const pathname = decodeURIComponent(url.pathname);
     if (pathname.startsWith('/.env')) { res.writeHead(404).end('not found'); return; }
-
-    if (pathname === '/api/login' && req.method === 'POST') {
-      if (!USERNAME || !PASSWORD) {
-        json(res, 503, { error: 'Sign-in is not configured. Copy .env.example to .env, set your account details, and restart the server.' });
-        return;
-      }
-      let form;
-      try { form = await readForm(req); } catch { json(res, 413, { error: 'Request is too large.' }); return; }
-      if (!safeEqual(form.get('username') || '', USERNAME) || !safeEqual(form.get('password') || '', PASSWORD)) {
-        json(res, 401, { error: 'That username and password do not match.' }); return;
-      }
-      const token = randomBytes(32).toString('base64url');
-      sessions.set(token, { expires: Date.now() + SESSION_TTL });
-      setSessionCookie(req, res, token, SESSION_TTL / 1000);
-      json(res, 200, { ok: true });
-      return;
-    }
-
-    if (pathname === '/api/logout' && req.method === 'POST') {
-      const cookie = req.headers.cookie?.split(';').map((part) => part.trim()).find((part) => part.startsWith(`${SESSION_COOKIE}=`));
-      if (cookie) sessions.delete(cookie.slice(SESSION_COOKIE.length + 1));
-      setSessionCookie(req, res, '', 0);
-      json(res, 200, { ok: true });
-      return;
-    }
-
-    const authenticated = sessionFrom(req);
-    if (authenticated && (pathname === '/login' || pathname === '/login.html')) {
+    if (pathname === '/login' || pathname === '/login.html') {
       res.writeHead(303, { Location: '/' }).end();
-      return;
-    }
-    if (!authenticated && pathname !== '/' && pathname !== '/login' && pathname !== '/login.html' && !publicFiles.has(pathname)) {
-      res.writeHead(401, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' }).end('authentication required');
       return;
     }
 
@@ -154,16 +96,15 @@ createServer(async (req, res) => {
       return;
     }
 
-    let path = normalize(join(ROOT, !authenticated && (pathname === '/' || pathname === '/login') ? 'login.html' : pathname));
+    let path = normalize(join(ROOT, pathname));
     if (!path.startsWith(ROOT)) { res.writeHead(403).end('forbidden'); return; }
     if ((await stat(path).catch(() => null))?.isDirectory()) path = join(path, 'index.html');
     const body = await readFile(path);
-    res.writeHead(200, { 'Content-Type': TYPES[extname(path).toLowerCase()] || 'application/octet-stream', 'Cache-Control': authenticated ? 'no-cache' : 'no-store' });
+    res.writeHead(200, { 'Content-Type': TYPES[extname(path).toLowerCase()] || 'application/octet-stream', 'Cache-Control': 'no-cache' });
     res.end(body);
   } catch {
     res.writeHead(404, { 'Content-Type': 'text/plain' }).end('not found');
   }
 }).listen(PORT, () => {
   console.log(`Live It running at http://localhost:${PORT}`);
-  if (!USERNAME || !PASSWORD) console.warn('Sign-in is disabled. Copy .env.example to .env, set credentials, and restart the server.');
 });

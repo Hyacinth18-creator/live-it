@@ -1,4 +1,4 @@
-import { isAuthenticated, json, readJson } from '../src/server/vercel-api.js';
+import { json, readJson } from '../src/server/vercel-api.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -6,11 +6,6 @@ export default async function handler(req, res) {
     json(res, 405, { error: 'Method not allowed.' });
     return;
   }
-  if (!await isAuthenticated(req)) {
-    json(res, 401, { error: 'Authentication required.' });
-    return;
-  }
-
   let payload;
   try {
     payload = readJson(req);

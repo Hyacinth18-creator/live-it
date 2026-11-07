@@ -956,16 +956,6 @@ function boot() {
     if (!event.target.closest('.icon')) return;
     clearTimeout(toolsCloseTimer); toolsCloseTimer = setTimeout(closeTools, 3000);
   });
-  document.getElementById('bLogout').onclick = async () => {
-    const button = document.getElementById('bLogout');
-    button.disabled = true;
-    app.experiences.close(false);
-    app.stopCamera();
-    if (app.recorder.on) await app.recorder.stop();
-    const response = await fetch('/api/logout', { method: 'POST' });
-    if (response.ok) location.assign('/');
-    else { button.disabled = false; app.toast('Could not end session'); }
-  };
   document.getElementById('bStartCam').onclick = async () => { if (await app.startCamera()) hideStart(); };
   document.getElementById('bStartNoCam').onclick = () => { hideStart(); app.toast('Keyboard: Space = summon / dissolve · F = fist · O = open · E = explode · D = demo · H = help'); };
   if (CFG.autostart === 'camera') { hideStart(); app.startCamera(); }

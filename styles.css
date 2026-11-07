@@ -127,8 +127,6 @@ button:focus-visible, select:focus-visible { outline: 2px solid var(--accent); o
 .icons { display: grid; grid-template-columns: repeat(4, 36px); gap: 7px; justify-content: center; }
 .icon { width: 36px; height: 36px; border-radius: 10px; background: var(--glass); border: 1px solid var(--glass-edge); font-size: 15px; }
 .icon.on { border-color: rgba(255, 255, 255, 0.55); box-shadow: 0 0 12px rgba(255, 255, 255, 0.14); }
-.logout { background: var(--glass); border: 1px solid var(--glass-edge); border-radius: 3px; color: var(--text); padding: 7px 11px; font-size: 11px; text-transform: uppercase; letter-spacing: 0; }
-.logout:hover { color: var(--accent); border-color: var(--accent); }
 .tools-toggle { min-width: 124px; }
 .tools-drawer { position: fixed; top: 108px; right: 16px; z-index: 8; width: 208px; padding: 12px; transform: translateX(calc(100% + 28px)); opacity: 0; visibility: hidden; pointer-events: none; transition: transform 0.26s ease, opacity 0.2s ease, visibility 0.26s; }
 .tools-open .tools-drawer { transform: translateX(0); opacity: 1; visibility: visible; pointer-events: auto; }
@@ -174,7 +172,6 @@ kbd { font-family: inherit; font-size: 11px; padding: 1px 6px; border: 1px solid
   .tab.active { border-bottom-color: var(--accent); }
   .chips { max-height: 90px; align-content: flex-start; }
   .top-right { top: 12px; right: 12px; }
-  .logout { padding: 6px 8px; }
   .tools-drawer { top: 100px; right: 12px; width: min(208px, calc(100vw - 24px)); }
   .catalog-content { grid-template-rows: minmax(58px, 1fr) auto; }
   .chooser-modes button { font-size: 9px; }

@@ -26,6 +26,5 @@ export default defineConfig({
     url: 'http://localhost:5187',
     reuseExistingServer: false,
     timeout: 30_000,
-    env: { LIVEIT_USERNAME: 'liveit-test', LIVEIT_PASSWORD: 'local-test-password' },
   },
 });
