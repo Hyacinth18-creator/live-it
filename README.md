@@ -22,13 +22,15 @@ npm run dev
 
 Then open **http://localhost:5173** and click **Start with camera** or **Continue without camera**.
 
-The studio is public: it has no account or password requirement. Anyone with the site URL can use it.
+The studio is public: it has no account or password requirement. Anyone with the site URL can use it. The `/login` and
+`/logout` pages remain available as informational pages, but sign-in and sign-out are intentionally disabled.
 
 ## Deploy to Vercel
 
 The repository includes a Vercel Function for AI requests. Import it with the project root set to the repository root;
 the included `vercel.json` selects the static frontend and configures the Node.js function. The studio is public:
-anyone with the URL can use it. No username, password, or session secret is required.
+anyone with the URL can use it. The `/login` and `/logout` pages are informational only; no username, password, or
+session secret is required.
 
 Only configure these optional variables in Vercel if you want to enable Ask AI:
 

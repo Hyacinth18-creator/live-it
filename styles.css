@@ -122,6 +122,9 @@ button:focus-visible, select:focus-visible { outline: 2px solid var(--accent); o
 
 /* ---------- top right */
 .top-right { position: fixed; top: 16px; right: 16px; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; z-index: 5; }
+.account-pages { display: flex; gap: 6px; }
+.account-pages a { padding: 6px 9px; border: 1px solid var(--glass-edge); border-radius: 3px; background: var(--glass); color: var(--text); font-size: 10px; text-decoration: none; text-transform: uppercase; }
+.account-pages a:hover { border-color: var(--accent); color: var(--accent); }
 .stats { font-size: 11px; color: var(--muted); padding: 8px 12px; font-variant-numeric: tabular-nums; line-height: 1.5; text-align: right; }
 .stats b { color: var(--text); font-weight: 650; }
 .icons { display: grid; grid-template-columns: repeat(4, 36px); gap: 7px; justify-content: center; }

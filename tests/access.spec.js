@@ -11,8 +11,14 @@ test('the studio and its app assets are public without signing in', async ({ req
   });
   expect(ai.status()).not.toBe(401);
 
-  const legacyLogin = await request.get(new URL('/login', baseURL).toString());
-  expect(legacyLogin.url()).toBe(baseURL);
+  const signInPage = await request.get(new URL('/login', baseURL).toString());
+  expect(signInPage.url()).toContain('/login.html');
+  expect(await signInPage.text()).toContain('Sign-in is disabled');
+  expect((await signInPage.text()).includes('<form')).toBe(false);
+  const signOutPage = await request.get(new URL('/logout', baseURL).toString());
+  expect(signOutPage.url()).toContain('/logout.html');
+  expect(await signOutPage.text()).toContain('There is no session to end');
+  expect(await signOutPage.text()).not.toContain('<form');
 });
 
 test('the studio and model navigation adapt from desktop to mobile', async ({ page, baseURL }) => {

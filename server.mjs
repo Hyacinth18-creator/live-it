@@ -40,17 +40,6 @@ function json(res, status, payload) {
   res.end(JSON.stringify(payload));
 }
 
-async function readForm(req) {
-  const chunks = [];
-  let length = 0;
-  for await (const chunk of req) {
-    length += chunk.length;
-    if (length > 4096) throw new Error('request too large');
-    chunks.push(chunk);
-  }
-  return new URLSearchParams(Buffer.concat(chunks).toString('utf8'));
-}
-
 async function readJson(req) {
   const chunks = [];
   let length = 0;
@@ -67,8 +56,8 @@ createServer(async (req, res) => {
     const url = new URL(req.url, 'http://localhost');
     const pathname = decodeURIComponent(url.pathname);
     if (pathname.startsWith('/.env')) { res.writeHead(404).end('not found'); return; }
-    if (pathname === '/login' || pathname === '/login.html') {
-      res.writeHead(303, { Location: '/' }).end();
+    if (pathname === '/login' || pathname === '/logout') {
+      res.writeHead(303, { Location: `${pathname}.html` }).end();
       return;
     }
 
