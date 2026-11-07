@@ -209,11 +209,13 @@ kbd { font-family: inherit; font-size: 11px; padding: 1px 6px; border: 1px solid
 .access-form input:-webkit-autofill { -webkit-text-fill-color: #f1f1f2; box-shadow: 0 0 0 1000px #292a2d inset; }
 .access-submit { display: flex; min-height: 48px; align-items: center; justify-content: space-between; margin-top: 4px; padding: 0 15px; border: 1px solid rgba(255, 255, 255, 0.26); border-radius: 2px; background: rgba(255, 255, 255, 0.1); color: #f2f2f3; font: inherit; font-size: 13px; transition: background 0.2s, color 0.2s; }
 .access-submit:hover { background: rgba(255, 255, 255, 0.22); border-color: rgba(255, 255, 255, 0.6); color: #fff; }
-.access-submit:disabled { cursor: progress; opacity: 0.7; }
+.access-submit:disabled { cursor: not-allowed; opacity: 0.7; }
 .access-submit span:last-child { color: #d9dade; font-size: 18px; }
 .access-submit:hover span:last-child { color: #fff; }
 .auth-message { min-height: 18px; margin: -10px 0 12px; color: #a54638; font-size: 12px; }
 .access-foot { margin-top: 46px; color: #a6a7ab; font-size: 9px; letter-spacing: 0; }
+.access-foot a { color: inherit; text-decoration: none; }
+.access-foot a:hover { color: #f2f2f3; }
 .access-foot span { padding: 0 6px; color: #d9dade; }
 .access-panel-rule { position: absolute; right: 20px; bottom: 20px; width: 34px; height: 34px; border-right: 1px solid rgba(255, 255, 255, 0.3); border-bottom: 1px solid rgba(255, 255, 255, 0.3); }
 .is-submitting .access-submit { opacity: 0.65; }

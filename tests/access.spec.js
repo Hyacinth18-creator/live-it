@@ -14,7 +14,10 @@ test('the studio and its app assets are public without signing in', async ({ req
   const signInPage = await request.get(new URL('/login', baseURL).toString());
   expect(signInPage.url()).toContain('/login.html');
   expect(await signInPage.text()).toContain('Sign-in is disabled');
-  expect((await signInPage.text()).includes('<form')).toBe(false);
+  expect(await signInPage.text()).toContain('Welcome back.');
+  expect(await signInPage.text()).toContain('name="username"');
+  expect(await signInPage.text()).toContain('name="password"');
+  expect(await signInPage.text()).toContain('id="signIn" class="access-submit" type="submit" disabled');
   const signOutPage = await request.get(new URL('/logout', baseURL).toString());
   expect(signOutPage.url()).toContain('/logout.html');
   expect(await signOutPage.text()).toContain('There is no session to end');
